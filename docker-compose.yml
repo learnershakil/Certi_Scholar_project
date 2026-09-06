@@ -1,0 +1,65 @@
+name: certischolar
+
+services:
+  mongodb:
+    image: mongo:7.0.14-jammy
+    container_name: certischolar-mongodb
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${MONGODB_PORT:-27017}:27017"
+    environment:
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-certischolar}
+    volumes:
+      - certischolar-mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - certischolar-network
+
+  redis:
+    image: redis:7.2.6-alpine
+    container_name: certischolar-redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - certischolar-redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - certischolar-network
+
+  clamav:
+    image: clamav/clamav:1.4.1
+    container_name: certischolar-clamav
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${CLAMAV_PORT:-3310}:3310"
+    healthcheck:
+      test: ["CMD", "clamdscan", "--ping", "5"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - certischolar-network
+
+volumes:
+  certischolar-mongodb-data:
+    name: certischolar-mongodb-data
+  certischolar-redis-data:
+    name: certischolar-redis-data
+
+networks:
+  certischolar-network:
+    name: certischolar-network
+    driver: bridge
