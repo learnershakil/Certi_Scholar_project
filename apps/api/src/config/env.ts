@@ -26,6 +26,7 @@ function getRequiredSecret(key: string, devFallback: string): string {
 const httpKey = getRequiredSecret('NODE_API_HTTP_KEY', 'dev-secret-key-certischolar-bff-proxy-secure-token-2026');
 const jwtSecret = getRequiredSecret('JWT_SECRET', 'dev-jwt-super-secret-key-change-in-production-min-32-chars');
 const otpSecret = getRequiredSecret('OTP_SECRET', 'dev-otp-salt-secret-change-in-production');
+const ocrServiceKey = getRequiredSecret('OCR_SERVICE_KEY', 'dev-internal-ocr-service-secret-token-32-chars');
 
 const scannerType = (process.env.SCANNER_TYPE || (isProd ? 'clamav' : 'mock')) as 'clamav' | 'mock';
 if (isProd && scannerType === 'mock') {
@@ -78,7 +79,7 @@ export const config = {
   
   // OCR Service (M2)
   ocrServiceUrl: process.env.OCR_SERVICE_URL || 'http://127.0.0.1:8000',
-  ocrServiceKey: process.env.OCR_SERVICE_KEY || 'dev-internal-ocr-service-secret-token',
+  ocrServiceKey,
   
   // Classification (M3)
   geminiApiKey: process.env.GEMINI_API_KEY || '',

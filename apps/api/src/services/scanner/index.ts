@@ -44,18 +44,43 @@ export async function inspectAndScanDocument(
     };
   }
 
-  // 2. Structural checks if PDF
+  // 2. Malware scan - Antivirus check runs BEFORE parser to protect parser from malicious exploits
+  const malwareScan = await scanForMalware(buffer);
+  if (malwareScan.state !== ScanState.CLEAN) {
+    let reason = `Scanner returned non-clean state: ${malwareScan.state}`;
+    if (malwareScan.state === ScanState.INFECTED) {
+      securityFlags.push('MALWARE_POSITIVE');
+      reason = `Malware detected (${malwareScan.signature || 'Threat detected'}) by ${malwareScan.engine}`;
+    } else if (malwareScan.state === ScanState.FAILED) {
+      securityFlags.push('MALWARE_SCAN_FAILED');
+      reason = `Malware scan failed or timed out: ${malwareScan.error || 'Scanner daemon unavailable'}`;
+    } else if (malwareScan.state === ScanState.SUSPICIOUS) {
+      securityFlags.push('MALWARE_SUSPICIOUS');
+      reason = `Suspicious file content flagged by ${malwareScan.engine}`;
+    }
+
+    return {
+      isAcceptable: false,
+      detectedMimeType: magicBytes.detectedMimeType,
+      magicBytes,
+      malwareScan,
+      quarantineReason: reason,
+      securityFlags,
+    };
+  }
+
+  // 3. Structural checks if PDF (only for clean files)
   let pdfInspection: PdfInspectionResult | undefined;
   if (magicBytes.detectedMimeType === 'application/pdf') {
-    pdfInspection = inspectPdfBuffer(buffer);
+    pdfInspection = await inspectPdfBuffer(buffer);
     if (!pdfInspection.isStructuralValid) {
       return {
         isAcceptable: false,
         detectedMimeType: magicBytes.detectedMimeType,
         magicBytes,
         pdfInspection,
-        malwareScan: { state: ScanState.FAILED, engine: 'PDF-Structure-Inspector' },
-        quarantineReason: `Corrupt or truncated PDF: ${pdfInspection.error}`,
+        malwareScan,
+        quarantineReason: `Corrupt, encrypted or unparseable PDF: ${pdfInspection.error}`,
         securityFlags: pdfInspection.securityFlags,
       };
     }
@@ -78,32 +103,6 @@ export async function inspectAndScanDocument(
         };
       }
     }
-  }
-
-  // 3. Malware scan - STRICT FAIL-CLOSED POLICY
-  const malwareScan = await scanForMalware(buffer);
-  if (malwareScan.state !== ScanState.CLEAN) {
-    let reason = `Scanner returned non-clean state: ${malwareScan.state}`;
-    if (malwareScan.state === ScanState.INFECTED) {
-      securityFlags.push('MALWARE_POSITIVE');
-      reason = `Malware detected (${malwareScan.signature || 'Threat detected'}) by ${malwareScan.engine}`;
-    } else if (malwareScan.state === ScanState.FAILED) {
-      securityFlags.push('MALWARE_SCAN_FAILED');
-      reason = `Malware scan failed or timed out: ${malwareScan.error || 'Scanner daemon unavailable'}`;
-    } else if (malwareScan.state === ScanState.SUSPICIOUS) {
-      securityFlags.push('MALWARE_SUSPICIOUS');
-      reason = `Suspicious file content flagged by ${malwareScan.engine}`;
-    }
-
-    return {
-      isAcceptable: false,
-      detectedMimeType: magicBytes.detectedMimeType,
-      magicBytes,
-      pdfInspection,
-      malwareScan,
-      quarantineReason: reason,
-      securityFlags,
-    };
   }
 
   return {

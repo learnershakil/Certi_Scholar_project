@@ -1,0 +1,284 @@
+import { Router, Request, Response } from 'express';
+import multer from 'multer';
+import mongoose from 'mongoose';
+import { CreateDocumentUploadSchema, UserRole } from '@repo/contracts';
+import { authenticateUser, requireRole } from '../middleware/auth';
+import { intakeService } from '../services/intakeService';
+import { DocumentModel } from '../models/Document';
+import { timelineService } from '../services/timelineService';
+import { config } from '../config/env';
+
+// Enforce single source of truth for upload size limit (10MB)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: config.maxFileSizeBytes },
+});
+
+export const documentRouter: Router = Router();
+
+// Protect all document routes with user authentication
+documentRouter.use(authenticateUser);
+
+/**
+ * Step 1: Initiate / register document upload.
+ */
+documentRouter.post('/', async (req: Request, res: Response) => {
+  try {
+    const parsed = CreateDocumentUploadSchema.parse(req.body);
+    const user = req.user!;
+
+    // Security fix: Students cannot upload on behalf of another student
+    const isPrivilegedStaff =
+      user.roles.includes(UserRole.INSTITUTE_ADMIN) || user.isSuperAdmin;
+    const studentId = isPrivilegedStaff ? req.body.studentId || user.userId : user.userId;
+
+    const instituteId = user.isSuperAdmin ? parsed.instituteId : user.instituteId || parsed.instituteId;
+
+    if (!user.isSuperAdmin && user.instituteId && user.instituteId !== parsed.instituteId) {
+      res.status(403).json({
+        success: false,
+        error: { message: 'Forbidden: Cannot create document for another institute.' },
+      });
+      return;
+    }
+
+    const result = await intakeService.initiateUpload({
+      filename: parsed.filename,
+      mimeType: parsed.mimeType,
+      fileSizeBytes: parsed.fileSize,
+      applicationId: parsed.applicationId,
+      instituteId,
+      studentId,
+      categoryHint: parsed.categoryHint,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        document: result.document,
+        uploadUrl: result.uploadUrl,
+        objectKey: result.objectKey,
+      },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to register upload';
+    res.status(400).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 2: Upload file buffer directly for processing (supports multipart form).
+ */
+documentRouter.post('/:id/upload', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    const documentId = req.params.id;
+    if (!documentId) {
+      res.status(400).json({ success: false, error: { message: 'Document ID is required.' } });
+      return;
+    }
+    if (!req.file || !req.file.buffer) {
+      res.status(400).json({ success: false, error: { message: 'File buffer is required.' } });
+      return;
+    }
+
+    // Byte-level validation
+    if (req.file.buffer.length === 0) {
+      res.status(400).json({ success: false, error: { message: 'Zero-byte empty files are rejected.' } });
+      return;
+    }
+    if (req.file.buffer.length > config.maxFileSizeBytes) {
+      res.status(400).json({
+        success: false,
+        error: { message: `File size exceeds limit of ${config.maxFileSizeBytes} bytes.` },
+      });
+      return;
+    }
+
+    // Ownership & tenancy check before processing
+    const doc = await DocumentModel.findById(documentId);
+    if (!doc) {
+      res.status(404).json({ success: false, error: { message: 'Document not found.' } });
+      return;
+    }
+
+    const user = req.user!;
+    if (!user.isSuperAdmin && user.instituteId !== doc.instituteId.toString()) {
+      res.status(403).json({ success: false, error: { message: 'Forbidden: Cross-institute upload prohibited.' } });
+      return;
+    }
+
+    if (
+      user.roles.includes(UserRole.STUDENT) &&
+      !user.roles.includes(UserRole.INSTITUTE_ADMIN) &&
+      !user.isSuperAdmin
+    ) {
+      if (doc.studentId.toString() !== user.userId) {
+        res.status(403).json({ success: false, error: { message: 'Forbidden: You cannot upload to another student document.' } });
+        return;
+      }
+    }
+
+    const processedDoc = await intakeService.processUploadedBuffer(
+      documentId,
+      req.file.buffer,
+      req.user
+    );
+
+    res.json({
+      success: true,
+      data: processedDoc,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Upload processing failed';
+    res.status(400).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 3: Get document details (tenant-scoped & student-scoped).
+ */
+documentRouter.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const doc = await DocumentModel.findById(req.params.id);
+    if (!doc) {
+      res.status(404).json({ success: false, error: { message: 'Document not found' } });
+      return;
+    }
+
+    const user = req.user!;
+    // Tenancy check
+    if (!user.isSuperAdmin && user.instituteId !== doc.instituteId.toString()) {
+      res.status(403).json({ success: false, error: { message: 'Forbidden: Cross-institute document access.' } });
+      return;
+    }
+
+    // Student ownership check
+    if (
+      user.roles.includes(UserRole.STUDENT) &&
+      !user.roles.includes(UserRole.VERIFICATION_OFFICER) &&
+      !user.roles.includes(UserRole.INSTITUTE_ADMIN) &&
+      !user.isSuperAdmin
+    ) {
+      if (doc.studentId.toString() !== user.userId) {
+        res.status(403).json({
+          success: false,
+          error: { message: 'Forbidden: You can only view documents from your own application.' },
+        });
+        return;
+      }
+    }
+
+    res.json({ success: true, data: doc });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to retrieve document';
+    res.status(500).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 4: Get short-lived authorized Presigned View URL (audited!).
+ */
+documentRouter.get('/:id/view-url', async (req: Request, res: Response) => {
+  try {
+    const ipAddress = req.ip || req.socket.remoteAddress;
+    const userAgent = req.headers['user-agent'];
+    const viewReason = typeof req.query.reason === 'string' ? req.query.reason : undefined;
+
+    const documentId = req.params.id;
+    if (!documentId) {
+      res.status(400).json({ success: false, error: { message: 'Document ID is required.' } });
+      return;
+    }
+
+    const result = await intakeService.getAuthorizedViewUrl(
+      documentId,
+      req.user!,
+      ipAddress,
+      userAgent,
+      viewReason
+    );
+
+    res.json({ success: true, data: result });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to generate view URL';
+    res.status(403).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5: Get document processing timeline.
+ */
+documentRouter.get('/:id/timeline', async (req: Request, res: Response) => {
+  try {
+    const doc = await DocumentModel.findById(req.params.id);
+    if (!doc) {
+      res.status(404).json({ success: false, error: { message: 'Document not found' } });
+      return;
+    }
+
+    const user = req.user!;
+    if (!user.isSuperAdmin && user.instituteId !== doc.instituteId.toString()) {
+      res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+      return;
+    }
+
+    if (
+      user.roles.includes(UserRole.STUDENT) &&
+      !user.roles.includes(UserRole.VERIFICATION_OFFICER) &&
+      !user.roles.includes(UserRole.INSTITUTE_ADMIN) &&
+      !user.isSuperAdmin
+    ) {
+      if (doc.studentId.toString() !== user.userId) {
+        res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+        return;
+      }
+    }
+
+    const events = await timelineService.getTimeline(doc.applicationId, doc.instituteId.toString());
+    res.json({ success: true, data: events });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to fetch timeline';
+    res.status(500).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 6: List documents (scoped strictly by tenant & role).
+ */
+documentRouter.get('/', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const filter: Record<string, unknown> = {};
+
+    // Tenancy scope
+    if (!user.isSuperAdmin) {
+      filter.instituteId = new mongoose.Types.ObjectId(user.instituteId);
+    } else if (req.query.instituteId) {
+      filter.instituteId = new mongoose.Types.ObjectId(String(req.query.instituteId));
+    }
+
+    // Role scope
+    if (
+      user.roles.includes(UserRole.STUDENT) &&
+      !user.roles.includes(UserRole.VERIFICATION_OFFICER) &&
+      !user.roles.includes(UserRole.INSTITUTE_ADMIN) &&
+      !user.isSuperAdmin
+    ) {
+      filter.studentId = new mongoose.Types.ObjectId(user.userId);
+    }
+
+    if (req.query.applicationId) {
+      filter.applicationId = String(req.query.applicationId);
+    }
+
+    if (req.query.status) {
+      filter.status = String(req.query.status);
+    }
+
+    const documents = await DocumentModel.find(filter).sort({ createdAt: -1 }).limit(100);
+    res.json({ success: true, data: documents });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to list documents';
+    res.status(500).json({ success: false, error: { message } });
+  }
+});

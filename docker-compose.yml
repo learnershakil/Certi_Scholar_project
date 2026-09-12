@@ -39,7 +39,7 @@ services:
       - certischolar-network
 
   clamav:
-    image: clamav/clamav:1.4.1
+    image: clamav/clamav:1.4
     container_name: certischolar-clamav
     restart: unless-stopped
     ports:
