@@ -51,6 +51,8 @@ export const config = {
   
   // Redis
   redisUrl: process.env.REDIS_URL || 'redis://127.0.0.1:6379',
+  redisHost: process.env.REDIS_HOST || '127.0.0.1',
+  redisPort: parseInt(process.env.REDIS_PORT || '6379', 10),
   
   // Auth
   jwtSecret,

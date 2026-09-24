@@ -5,6 +5,7 @@ import { CreateDocumentUploadSchema, UserRole } from '@repo/contracts';
 import { authenticateUser, requireRole } from '../middleware/auth';
 import { intakeService } from '../services/intakeService';
 import { DocumentModel } from '../models/Document';
+import { OCRResultModel } from '../models/OCRResult';
 import { timelineService } from '../services/timelineService';
 import { config } from '../config/env';
 
@@ -238,6 +239,59 @@ documentRouter.get('/:id/timeline', async (req: Request, res: Response) => {
     res.json({ success: true, data: events });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to fetch timeline';
+    res.status(500).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5b: Get normalized OCR result for document (tenant and case authorized).
+ */
+documentRouter.get('/:id/ocr', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const doc = await DocumentModel.findById(req.params.id);
+    if (!doc) {
+      res.status(404).json({ success: false, error: { message: 'Document not found' } });
+      return;
+    }
+
+    // Tenancy Check
+    if (!user.isSuperAdmin && doc.instituteId.toString() !== user.instituteId) {
+      res.status(403).json({
+        success: false,
+        error: { message: 'Forbidden: Access denied to documents belonging to another institute.' },
+      });
+      return;
+    }
+
+    // Student ownership check
+    if (
+      user.roles.includes(UserRole.STUDENT) &&
+      !user.roles.includes(UserRole.VERIFICATION_OFFICER) &&
+      !user.roles.includes(UserRole.INSTITUTE_ADMIN) &&
+      !user.isSuperAdmin
+    ) {
+      if (doc.studentId.toString() !== user.userId) {
+        res.status(403).json({
+          success: false,
+          error: { message: 'Forbidden: You can only access OCR results for your own documents.' },
+        });
+        return;
+      }
+    }
+
+    const ocrResult = await OCRResultModel.findOne({ documentId: doc._id });
+    if (!ocrResult) {
+      res.status(404).json({
+        success: false,
+        error: { message: 'OCR extraction pending or not found for this document.' },
+      });
+      return;
+    }
+
+    res.json({ success: true, data: ocrResult });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to retrieve OCR result';
     res.status(500).json({ success: false, error: { message } });
   }
 });

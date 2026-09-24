@@ -53,6 +53,20 @@ services:
     networks:
       - certischolar-network
 
+  ocr:
+    build:
+      context: ./services/ocr
+      dockerfile: Dockerfile
+    container_name: certischolar-ocr
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${OCR_PORT:-8000}:8000"
+    environment:
+      - OCR_SERVICE_KEY=${OCR_SERVICE_KEY:-dev-internal-ocr-service-secret-token-32-chars}
+      - OCR_PROVIDER=${OCR_PROVIDER:-tesseract}
+    networks:
+      - certischolar-network
+
 volumes:
   certischolar-mongodb-data:
     name: certischolar-mongodb-data

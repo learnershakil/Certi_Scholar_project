@@ -14,6 +14,7 @@ import { storageService } from './storage';
 import { inspectAndScanDocument } from './scanner';
 import { auditService } from './auditService';
 import { timelineService } from './timelineService';
+import { enqueueOcrJob } from './queueService';
 import { config } from '../config/env';
 
 export interface InitiateUploadParams {
@@ -201,6 +202,19 @@ export class IntakeService {
         engine: inspection.malwareScan.engine,
       },
     });
+
+    // Enqueue asynchronous OCR extraction via BullMQ
+    try {
+      await enqueueOcrJob({
+        documentId: doc._id.toString(),
+        instituteId: doc.instituteId.toString(),
+        cleanStorageKey: doc.storageKey,
+        mimeType: doc.mimeType,
+        fileSizeBytes: doc.fileSizeBytes,
+      });
+    } catch (queueErr) {
+      console.warn('[Queue] Failed to enqueue async OCR job:', queueErr);
+    }
 
     return doc;
   }
