@@ -6,6 +6,8 @@ import { authenticateUser, requireRole } from '../middleware/auth';
 import { intakeService } from '../services/intakeService';
 import { DocumentModel } from '../models/Document';
 import { OCRResultModel } from '../models/OCRResult';
+import { ClassificationRecordModel } from '../models/ClassificationRecord';
+import { classificationService } from '../services/classification';
 import { timelineService } from '../services/timelineService';
 import { config } from '../config/env';
 
@@ -292,6 +294,80 @@ documentRouter.get('/:id/ocr', async (req: Request, res: Response) => {
     res.json({ success: true, data: ocrResult });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to retrieve OCR result';
+    res.status(500).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5c: Classify document based on OCR text (M3).
+ */
+documentRouter.post('/:id/classify', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const doc = await DocumentModel.findById(req.params.id);
+    if (!doc) {
+      res.status(404).json({ success: false, error: { message: 'Document not found' } });
+      return;
+    }
+
+    // Tenancy Check
+    if (!user.isSuperAdmin && doc.instituteId.toString() !== user.instituteId) {
+      res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+      return;
+    }
+
+    // Retrieve OCR full text
+    const ocrRecord = await OCRResultModel.findOne({ documentId: doc._id });
+    const rawOcrText = ocrRecord ? ocrRecord.fullText : (req.body.textOverride || '');
+
+    const outcome = await classificationService.classifyDocument(
+      doc._id.toString(),
+      rawOcrText,
+      doc.instituteId.toString()
+    );
+
+    res.json({
+      success: true,
+      data: {
+        category: outcome.classification.category,
+        confidence: outcome.classification.modelConfidence,
+        profile: outcome.resolvedProfile,
+        evidencePhrases: outcome.classification.evidencePhrases,
+        explanation: outcome.classification.explanation,
+      },
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Classification failed';
+    res.status(500).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5d: Get classification record for document (M3).
+ */
+documentRouter.get('/:id/classification', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const doc = await DocumentModel.findById(req.params.id);
+    if (!doc) {
+      res.status(404).json({ success: false, error: { message: 'Document not found' } });
+      return;
+    }
+
+    if (!user.isSuperAdmin && doc.instituteId.toString() !== user.instituteId) {
+      res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+      return;
+    }
+
+    const record = await ClassificationRecordModel.findOne({ documentId: doc._id }).sort({ createdAt: -1 });
+    if (!record) {
+      res.status(404).json({ success: false, error: { message: 'Classification not found' } });
+      return;
+    }
+
+    res.json({ success: true, data: record });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to fetch classification';
     res.status(500).json({ success: false, error: { message } });
   }
 });
