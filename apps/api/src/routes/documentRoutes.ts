@@ -7,7 +7,9 @@ import { intakeService } from '../services/intakeService';
 import { DocumentModel } from '../models/Document';
 import { OCRResultModel } from '../models/OCRResult';
 import { ClassificationRecordModel } from '../models/ClassificationRecord';
+import { DocumentExtractionModel } from '../models/DocumentExtraction';
 import { classificationService } from '../services/classification';
+import { fieldExtractionService } from '../services/extraction';
 import { timelineService } from '../services/timelineService';
 import { config } from '../config/env';
 
@@ -368,6 +370,77 @@ documentRouter.get('/:id/classification', async (req: Request, res: Response) =>
     res.json({ success: true, data: record });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to fetch classification';
+    res.status(500).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5e: Extract structured fields from document using active profile (M4).
+ */
+documentRouter.post('/:id/extract', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const doc = await DocumentModel.findById(req.params.id);
+    if (!doc) {
+      res.status(404).json({ success: false, error: { message: 'Document not found' } });
+      return;
+    }
+
+    if (!user.isSuperAdmin && doc.instituteId.toString() !== user.instituteId) {
+      res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+      return;
+    }
+
+    const extraction = await fieldExtractionService.extractDocumentFields(
+      doc._id.toString(),
+      doc.instituteId.toString()
+    );
+
+    res.json({ success: true, data: extraction });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Field extraction failed';
+    res.status(500).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5f: Get extracted fields for document (M4).
+ */
+documentRouter.get('/:id/fields', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const doc = await DocumentModel.findById(req.params.id);
+    if (!doc) {
+      res.status(404).json({ success: false, error: { message: 'Document not found' } });
+      return;
+    }
+
+    if (!user.isSuperAdmin && doc.instituteId.toString() !== user.instituteId) {
+      res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+      return;
+    }
+
+    if (
+      user.roles.includes(UserRole.STUDENT) &&
+      !user.roles.includes(UserRole.VERIFICATION_OFFICER) &&
+      !user.roles.includes(UserRole.INSTITUTE_ADMIN) &&
+      !user.isSuperAdmin
+    ) {
+      if (doc.studentId.toString() !== user.userId) {
+        res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+        return;
+      }
+    }
+
+    const extraction = await DocumentExtractionModel.findOne({ documentId: doc._id }).sort({ version: -1 });
+    if (!extraction) {
+      res.status(404).json({ success: false, error: { message: 'No fields extracted for this document yet' } });
+      return;
+    }
+
+    res.json({ success: true, data: extraction });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to retrieve fields';
     res.status(500).json({ success: false, error: { message } });
   }
 });
