@@ -37,3 +37,5 @@ TimelineEventSchema.index({ instituteId: 1, applicationId: 1, timestamp: 1 });
 export const TimelineEvent: Model<ITimelineEvent> =
   (mongoose.models.TimelineEvent as Model<ITimelineEvent>) ||
   mongoose.model<ITimelineEvent>('TimelineEvent', TimelineEventSchema);
+
+export const TimelineEventModel = TimelineEvent;

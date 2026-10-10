@@ -6,6 +6,7 @@ export const CorrectionActionSchema = z.object({
   action: z.enum(['APPROVE', 'CORRECT', 'MARK_UNREADABLE', 'REQUEST_REUPLOAD']),
   correctedValue: z.any().optional(),
   reason: z.string().min(3).max(500),
+  expectedVersion: z.number().int().positive().optional(),
 });
 
 export type CorrectionActionDto = z.infer<typeof CorrectionActionSchema>;
