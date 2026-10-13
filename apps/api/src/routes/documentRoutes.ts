@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import mongoose from 'mongoose';
-import { CreateDocumentUploadSchema, UserRole } from '@repo/contracts';
+import { CreateDocumentUploadSchema, CorrectionActionSchema, UserRole } from '@repo/contracts';
 import { authenticateUser, requireRole } from '../middleware/auth';
 import { intakeService } from '../services/intakeService';
 import { DocumentModel } from '../models/Document';
@@ -10,6 +10,7 @@ import { ClassificationRecordModel } from '../models/ClassificationRecord';
 import { DocumentExtractionModel } from '../models/DocumentExtraction';
 import { classificationService } from '../services/classification';
 import { fieldExtractionService } from '../services/extraction';
+import { reviewService } from '../services/reviewService';
 import { timelineService } from '../services/timelineService';
 import { config } from '../config/env';
 
@@ -442,6 +443,45 @@ documentRouter.get('/:id/fields', async (req: Request, res: Response) => {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to retrieve fields';
     res.status(500).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5b: Apply human review action to extracted fields.
+ */
+documentRouter.post('/:id/review', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const id = req.params.id as string;
+    if (!id) {
+      res.status(400).json({ success: false, error: { message: 'Document ID is required' } });
+      return;
+    }
+
+    const parsed = CorrectionActionSchema.parse(req.body);
+    const expectedVersion =
+      parsed.expectedVersion ??
+      (req.headers['if-match'] ? parseInt(req.headers['if-match'] as string, 10) : undefined);
+
+    const result = await reviewService.applyReviewAction(
+      id,
+      parsed,
+      user,
+      expectedVersion
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to apply review action';
+    let status = 400;
+    if (message.startsWith('Forbidden')) status = 403;
+    else if (message.includes('not found')) status = 404;
+    else if (message.includes('Optimistic lock conflict')) status = 409;
+
+    res.status(status).json({ success: false, error: { message } });
   }
 });
 
