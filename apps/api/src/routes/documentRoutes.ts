@@ -11,6 +11,7 @@ import { DocumentExtractionModel } from '../models/DocumentExtraction';
 import { classificationService } from '../services/classification';
 import { fieldExtractionService } from '../services/extraction';
 import { reviewService } from '../services/reviewService';
+import { consistencyService } from '../services/calculation/consistencyService';
 import { timelineService } from '../services/timelineService';
 import { config } from '../config/env';
 
@@ -481,6 +482,64 @@ documentRouter.post('/:id/review', async (req: Request, res: Response) => {
     else if (message.includes('not found')) status = 404;
     else if (message.includes('Optimistic lock conflict')) status = 409;
 
+    res.status(status).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5c: Perform academic consistency check and compare with printed values.
+ */
+documentRouter.post('/:id/consistency', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const id = req.params.id as string;
+    if (!id) {
+      res.status(400).json({ success: false, error: { message: 'Document ID is required' } });
+      return;
+    }
+
+    const { profileKey, customSubjects } = req.body || {};
+    const result = await consistencyService.performConsistencyCheck(id, user, {
+      profileKey,
+      customSubjects,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to perform consistency check';
+    const status = message.startsWith('Forbidden') ? 403 : message.includes('not found') ? 404 : 400;
+    res.status(status).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5d: Retrieve academic consistency result.
+ */
+documentRouter.get('/:id/consistency', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const id = req.params.id as string;
+    if (!id) {
+      res.status(400).json({ success: false, error: { message: 'Document ID is required' } });
+      return;
+    }
+
+    const result = await consistencyService.getConsistencyResult(id, user);
+    if (!result) {
+      res.status(404).json({ success: false, error: { message: 'No consistency check record found' } });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to retrieve consistency result';
+    const status = message.startsWith('Forbidden') ? 403 : message.includes('not found') ? 404 : 400;
     res.status(status).json({ success: false, error: { message } });
   }
 });
