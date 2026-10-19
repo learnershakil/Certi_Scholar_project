@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import multer from 'multer';
 import mongoose from 'mongoose';
-import { CreateDocumentUploadSchema, CorrectionActionSchema, UserRole } from '@repo/contracts';
+import { CreateDocumentUploadSchema, CorrectionActionSchema, UserRole, VerificationProviderType } from '@repo/contracts';
 import { authenticateUser, requireRole } from '../middleware/auth';
 import { intakeService } from '../services/intakeService';
 import { DocumentModel } from '../models/Document';
@@ -12,6 +12,7 @@ import { classificationService } from '../services/classification';
 import { fieldExtractionService } from '../services/extraction';
 import { reviewService } from '../services/reviewService';
 import { consistencyService } from '../services/calculation/consistencyService';
+import { verificationService } from '../services/verification/verificationService';
 import { timelineService } from '../services/timelineService';
 import { config } from '../config/env';
 
@@ -539,6 +540,68 @@ documentRouter.get('/:id/consistency', async (req: Request, res: Response) => {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to retrieve consistency result';
+    const status = message.startsWith('Forbidden') ? 403 : message.includes('not found') ? 404 : 400;
+    res.status(status).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5e: Verify document against issuer/locker provider.
+ */
+documentRouter.post('/:id/verify', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const id = req.params.id as string;
+    if (!id) {
+      res.status(400).json({ success: false, error: { message: 'Document ID is required' } });
+      return;
+    }
+
+    const { provider, consentGrantId, manualEvidence, simulatedScenario } = req.body || {};
+    if (!provider || !Object.values(VerificationProviderType).includes(provider)) {
+      res.status(400).json({
+        success: false,
+        error: { message: `Valid provider is required (${Object.values(VerificationProviderType).join(', ')})` },
+      });
+      return;
+    }
+
+    const result = await verificationService.verifyDocument(id, provider, user, {
+      consentGrantId,
+      manualEvidence,
+      simulatedScenario,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to verify document';
+    const status = message.startsWith('Forbidden') ? 403 : message.includes('not found') ? 404 : 400;
+    res.status(status).json({ success: false, error: { message } });
+  }
+});
+
+/**
+ * Step 5f: Get verification results for document.
+ */
+documentRouter.get('/:id/verification', async (req: Request, res: Response) => {
+  try {
+    const user = req.user!;
+    const id = req.params.id as string;
+    if (!id) {
+      res.status(400).json({ success: false, error: { message: 'Document ID is required' } });
+      return;
+    }
+
+    const results = await verificationService.getVerificationResults(id, user);
+    res.status(200).json({
+      success: true,
+      data: results,
+    });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Failed to retrieve verification results';
     const status = message.startsWith('Forbidden') ? 403 : message.includes('not found') ? 404 : 400;
     res.status(status).json({ success: false, error: { message } });
   }
