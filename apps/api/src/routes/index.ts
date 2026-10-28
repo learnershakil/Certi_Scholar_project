@@ -5,6 +5,7 @@ import { healthRouter } from './healthRoutes';
 import { reviewRouter } from './reviewRoutes';
 import { verificationRouter } from './verificationRoutes';
 import { scholarshipRouter } from './scholarshipRoutes';
+import { recommendationRouter } from './recommendationRoutes';
 
 export const apiRouter: Router = Router();
 
@@ -14,3 +15,4 @@ apiRouter.use('/documents', documentRouter);
 apiRouter.use('/review', reviewRouter);
 apiRouter.use('/verification', verificationRouter);
 apiRouter.use('/scholarships', scholarshipRouter);
+apiRouter.use('/recommendations', recommendationRouter);
