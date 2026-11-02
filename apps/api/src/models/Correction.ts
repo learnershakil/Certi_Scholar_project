@@ -44,3 +44,4 @@ CorrectionSchema.index({ instituteId: 1, documentId: 1, createdAt: -1 });
 export const CorrectionModel: Model<ICorrection> =
   (mongoose.models.Correction as Model<ICorrection>) ||
   mongoose.model<ICorrection>('Correction', CorrectionSchema);
+

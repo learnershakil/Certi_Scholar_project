@@ -50,3 +50,4 @@ export async function closeOcrQueue(): Promise<void> {
     ocrQueueInstance = null;
   }
 }
+

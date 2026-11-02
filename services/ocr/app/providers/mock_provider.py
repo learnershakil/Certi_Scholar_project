@@ -111,3 +111,4 @@ class MockOcrProvider(BaseOcrProvider):
             processedAt=datetime.now(timezone.utc).isoformat(),
             latencyMs=max(1, latency_ms),
         )
+

@@ -7,6 +7,7 @@ import { verificationRouter } from './verificationRoutes';
 import { scholarshipRouter } from './scholarshipRoutes';
 import { recommendationRouter } from './recommendationRoutes';
 import { reportingRouter } from './reportingRoutes';
+import { caseAssignmentRouter } from './caseAssignmentRoutes';
 
 export const apiRouter: Router = Router();
 
@@ -18,3 +19,4 @@ apiRouter.use('/verification', verificationRouter);
 apiRouter.use('/scholarships', scholarshipRouter);
 apiRouter.use('/recommendations', recommendationRouter);
 apiRouter.use('/reporting', reportingRouter);
+apiRouter.use('/cases', caseAssignmentRouter);

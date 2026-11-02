@@ -45,3 +45,4 @@ VerificationConsentGrantSchema.index({ instituteId: 1, studentId: 1, status: 1 }
 export const VerificationConsentGrantModel: Model<IVerificationConsentGrant> =
   (mongoose.models.VerificationConsentGrant as Model<IVerificationConsentGrant>) ||
   mongoose.model<IVerificationConsentGrant>('VerificationConsentGrant', VerificationConsentGrantSchema);
+

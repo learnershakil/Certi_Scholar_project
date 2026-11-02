@@ -37,3 +37,4 @@ export function resolveCalculationProfile(key: string): AcademicCalculationProfi
   }
   return profile;
 }
+

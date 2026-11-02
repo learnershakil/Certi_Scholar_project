@@ -53,3 +53,4 @@ verificationRouter.post('/consent/:id/revoke', async (req: Request, res: Respons
     res.status(status).json({ success: false, error: { message } });
   }
 });
+

@@ -246,7 +246,7 @@ describe('M1 Multi-Institute Tenancy & Secure Intake Integration E2E', () => {
   it('Step 6: Officer Alpha views clean document -> presigned view URL issued & truthfully audited', async () => {
     const doc = await DocumentModel.findOne({
       instituteId: instA._id,
-      status: DocumentProcessingState.PROCESSING_QUEUED,
+      scanState: ScanState.CLEAN,
     });
     expect(doc).toBeDefined();
 
@@ -273,7 +273,7 @@ describe('M1 Multi-Institute Tenancy & Secure Intake Integration E2E', () => {
     const docA = await DocumentModel.findOne({
       instituteId: instA._id,
       studentId: studentA._id,
-      status: DocumentProcessingState.PROCESSING_QUEUED,
+      scanState: ScanState.CLEAN,
     });
     expect(docA).toBeDefined();
 

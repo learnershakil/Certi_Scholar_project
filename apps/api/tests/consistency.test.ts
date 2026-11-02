@@ -325,3 +325,4 @@ describe('M6 Academic Calculation & Consistency (Meetr)', () => {
     expect(res.body.error.message).toContain('Forbidden');
   });
 });
+

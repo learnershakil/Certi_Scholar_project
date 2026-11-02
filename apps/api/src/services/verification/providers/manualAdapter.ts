@@ -39,3 +39,4 @@ export class ManualVerificationAdapter implements IVerificationProvider {
 }
 
 export const manualAdapter = new ManualVerificationAdapter();
+

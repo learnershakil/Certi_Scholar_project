@@ -80,3 +80,4 @@ export class CertiAdapter implements IVerificationProvider {
 }
 
 export const certiAdapter = new CertiAdapter();
+

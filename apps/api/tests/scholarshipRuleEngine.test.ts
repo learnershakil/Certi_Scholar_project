@@ -360,3 +360,4 @@ describe('M8 Scholarship Rule Engine (Meetr)', () => {
     expect(updateRes.status).toBe(403);
   });
 });
+

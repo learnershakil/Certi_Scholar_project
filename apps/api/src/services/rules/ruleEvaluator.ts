@@ -178,3 +178,4 @@ export class RuleEvaluator {
 }
 
 export const ruleEvaluator = new RuleEvaluator();
+

@@ -70,3 +70,4 @@ RecommendationSchema.index({ instituteId: 1, applicationId: 1, scholarshipId: 1 
 export const RecommendationModel: Model<IRecommendation> =
   (mongoose.models.Recommendation as Model<IRecommendation>) ||
   mongoose.model<IRecommendation>('Recommendation', RecommendationSchema);
+

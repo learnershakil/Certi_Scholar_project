@@ -7,7 +7,10 @@ import { createStorageService } from '../services/storage';
 import { OCRResultModel } from '../models/OCRResult';
 import { DocumentModel } from '../models/Document';
 import { timelineService } from '../services/timelineService';
-import { DocumentProcessingState, TimelineEventType } from '@repo/contracts';
+import { classificationService } from '../services/classification';
+import { fieldExtractionService } from '../services/extraction';
+import { consistencyService } from '../services/calculation/consistencyService';
+import { DocumentProcessingState, TimelineEventType, DocumentTypeCategory, UserRole } from '@repo/contracts';
 
 export function createOcrWorker(): Worker<OcrJobData> {
   const worker = new Worker<OcrJobData>(
@@ -89,6 +92,47 @@ export function createOcrWorker(): Worker<OcrJobData> {
             latencyMs: ocrResult.latencyMs,
           },
         });
+      }
+
+      // 7. Auto-chain M3 Document Classification & M4 Field Extraction
+      try {
+        if (ocrResult.fullText && ocrResult.fullText.trim().length > 0) {
+          const classificationOutcome = await classificationService.classifyDocument(
+            documentId,
+            ocrResult.fullText,
+            instituteId
+          );
+          console.log(`[OCR PIPELINE] Document ${documentId} classified as: ${classificationOutcome.classification.category}`);
+
+          // Extract structured fields
+          const extraction = await fieldExtractionService.extractDocumentFields(
+            documentId,
+            instituteId
+          );
+          console.log(`[OCR PIPELINE] Document ${documentId} fields extracted (needsReview: ${extraction.needsReview})`);
+
+          // If academic marksheet, perform initial consistency check
+          if (
+            classificationOutcome.classification.category === DocumentTypeCategory.ACADEMIC_MARKSHEET
+          ) {
+            try {
+              await consistencyService.performConsistencyCheck(
+                documentId,
+                {
+                  userId: 'system-pipeline-worker',
+                  roles: [UserRole.INSTITUTE_ADMIN],
+                  instituteId,
+                  isSuperAdmin: true,
+                }
+              );
+              console.log(`[OCR PIPELINE] Document ${documentId} academic consistency check completed.`);
+            } catch (calcErr) {
+              console.warn(`[OCR PIPELINE] Consistency check notice for ${documentId}:`, (calcErr as Error).message);
+            }
+          }
+        }
+      } catch (pipelineErr) {
+        console.warn(`[OCR PIPELINE] Downstream processing for ${documentId} caught notice:`, (pipelineErr as Error).message);
       }
 
       return ocrResult;

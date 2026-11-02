@@ -1,12 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 const NODE_API_BASE_URL = process.env.NODE_API_BASE_URL || 'http://127.0.0.1:4000';
-const NODE_API_HTTP_KEY = process.env.NODE_API_HTTP_KEY;
+const NODE_API_HTTP_KEY =
+  process.env.NODE_API_HTTP_KEY ||
+  (process.env.NODE_ENV !== 'production'
+    ? 'dev-secret-key-certischolar-bff-proxy-secure-token-2026'
+    : undefined);
 
 /**
  * Universal Next.js BFF proxy handler.
- * Adds mandatory server-only x-http-key header before forwarding to Node.js API.
- * Any client-supplied x-http-key is strictly discarded.
+ * - Injects mandatory server-only x-http-key header before forwarding to Node.js API.
+ * - Intercepts OTP verification to set secure HttpOnly session cookies.
+ * - Forwards HttpOnly session cookie as Authorization: Bearer <token>.
+ * - Provides native logout endpoint clearing the session.
  */
 async function proxyRequest(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
   if (!NODE_API_HTTP_KEY) {
@@ -24,7 +30,22 @@ async function proxyRequest(request: NextRequest, { params }: { params: Promise<
   }
 
   const { path } = await params;
-  const targetPath = `/api/${path.join('/')}`;
+  const joinedPath = path.join('/');
+  const targetPath = `/api/${joinedPath}`;
+
+  // Dedicated BFF logout endpoint
+  if (joinedPath === 'v1/auth/logout' && request.method.toUpperCase() === 'POST') {
+    const logoutRes = NextResponse.json({ success: true, message: 'Logged out successfully' });
+    logoutRes.cookies.set('certischolar_session', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      expires: new Date(0),
+    });
+    return logoutRes;
+  }
+
   const targetUrl = new URL(targetPath, NODE_API_BASE_URL);
 
   // Preserve query string
@@ -49,6 +70,12 @@ async function proxyRequest(request: NextRequest, { params }: { params: Promise<
   // Inject trusted server-only key
   forwardedHeaders.set('x-http-key', NODE_API_HTTP_KEY);
 
+  // If HttpOnly session cookie exists and no Authorization header supplied, attach Bearer token
+  const sessionToken = request.cookies.get('certischolar_session')?.value;
+  if (sessionToken && !forwardedHeaders.has('authorization')) {
+    forwardedHeaders.set('authorization', `Bearer ${sessionToken}`);
+  }
+
   // Determine body
   const method = request.method.toUpperCase();
   let body: BodyInit | null = null;
@@ -69,8 +96,33 @@ async function proxyRequest(request: NextRequest, { params }: { params: Promise<
     const responseHeaders = new Headers();
 
     apiResponse.headers.forEach((value, key) => {
-      responseHeaders.set(key, value);
+      // Don't forward transfer-encoding
+      if (key.toLowerCase() !== 'transfer-encoding') {
+        responseHeaders.set(key, value);
+      }
     });
+
+    // Check if this was a successful OTP verify call: set HttpOnly cookie
+    if (joinedPath === 'v1/auth/otp/verify' && apiResponse.ok) {
+      try {
+        const text = new TextDecoder().decode(responseData);
+        const json = JSON.parse(text);
+        if (json?.data?.token) {
+          const cookieRes = NextResponse.json(json, {
+            status: apiResponse.status,
+            statusText: apiResponse.statusText,
+          });
+          cookieRes.cookies.set('certischolar_session', json.data.token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60, // 7 days
+          });
+          return cookieRes;
+        }
+      } catch (_) {}
+    }
 
     return new NextResponse(responseData, {
       status: apiResponse.status,

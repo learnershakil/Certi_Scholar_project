@@ -14,3 +14,4 @@ def get_ocr_provider(provider_name: str) -> BaseOcrProvider:
     else:
         # Default fallback to Tesseract
         return TesseractOcrProvider()
+

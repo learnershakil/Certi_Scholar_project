@@ -50,3 +50,4 @@ class OcrProcessRequest(BaseModel):
     mimeType: str
     fileBase64: str | None = None
     storageKey: str | None = None
+

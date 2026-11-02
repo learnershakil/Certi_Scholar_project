@@ -24,20 +24,21 @@ export class DigiLockerAdapter implements IVerificationProvider {
       };
     }
 
-    // In a fully onboarded environment with partner credentials:
-    // 1. Authorize student through MeriPehchan OAuth
-    // 2. Fetch signed URI payload from DigiLocker API
-    // 3. Verify digital signature against National e-Governance Division (NeGD) certificate
+    // In a production environment with approved partner credentials:
+    // Live verification requires a valid MeriPehchan student OAuth session and NeGD certificate trust chain.
+    // Without an active live student OAuth token and cryptographic verification against the government root certificate,
+    // we never falsely claim issuer verification.
     return {
       provider: this.providerType,
-      status: VerificationStatus.MATCHED,
-      isAuthenticityVerified: true,
+      status: VerificationStatus.UNAVAILABLE,
+      isAuthenticityVerified: false,
       retrievalOnly: false,
       isSimulated: false,
-      evidenceReference: `DL-ISSUER-VERIFIED-${context.documentId}`,
-      notes: 'Issuer verified via DigiLocker official partner integration.',
+      notes:
+        'DigiLocker partner gateway is pending live MeriPehchan student OAuth token and NeGD certificate trust chain verification. Authentic digital signature verification cannot be claimed without live token exchange.',
     };
   }
 }
 
 export const digiLockerAdapter = new DigiLockerAdapter();
+

@@ -58,3 +58,4 @@ const ExtractionProfileSchema = new Schema<IExtractionProfile>(
 export const ExtractionProfileModel: Model<IExtractionProfile> =
   (mongoose.models.ExtractionProfile as Model<IExtractionProfile>) ||
   mongoose.model<IExtractionProfile>('ExtractionProfile', ExtractionProfileSchema);
+

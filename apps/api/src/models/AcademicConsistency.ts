@@ -76,3 +76,4 @@ AcademicConsistencySchema.index({ instituteId: 1, documentId: 1 }, { unique: tru
 export const AcademicConsistencyModel: Model<IAcademicConsistency> =
   (mongoose.models.AcademicConsistency as Model<IAcademicConsistency>) ||
   mongoose.model<IAcademicConsistency>('AcademicConsistency', AcademicConsistencySchema);
+

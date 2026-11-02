@@ -65,3 +65,4 @@ export async function ensureDefaultScholarships(instituteId: string, adminUserId
     });
   }
 }
+

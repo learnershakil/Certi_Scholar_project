@@ -58,3 +58,4 @@ async def test_tesseract_pdf_text_extraction():
     assert result.pageCount == 1
     assert result.pages[0].width == 612.0
     assert result.pages[0].height == 792.0
+

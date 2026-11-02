@@ -64,3 +64,4 @@ async def test_process_ocr_with_valid_key():
         assert data["provider"] in ("TESSERACT", "MOCK")
         assert len(data["pages"]) == 1
         assert data["latencyMs"] >= 0
+

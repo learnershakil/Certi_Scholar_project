@@ -237,3 +237,4 @@ export class ScholarshipService {
 }
 
 export const scholarshipService = new ScholarshipService();
+

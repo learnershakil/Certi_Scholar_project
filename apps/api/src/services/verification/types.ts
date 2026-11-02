@@ -34,3 +34,4 @@ export interface IVerificationProvider {
   isAvailable(): boolean;
   verify(context: VerificationContext): Promise<VerificationExecutionResult>;
 }
+

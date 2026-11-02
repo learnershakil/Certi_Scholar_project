@@ -74,3 +74,4 @@ export class OcrClient {
 }
 
 export const ocrClient = new OcrClient();
+

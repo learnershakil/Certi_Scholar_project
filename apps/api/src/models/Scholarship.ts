@@ -41,3 +41,4 @@ ScholarshipSchema.index({ instituteId: 1, code: 1 }, { unique: true });
 export const ScholarshipModel: Model<IScholarship> =
   (mongoose.models.Scholarship as Model<IScholarship>) ||
   mongoose.model<IScholarship>('Scholarship', ScholarshipSchema);
+

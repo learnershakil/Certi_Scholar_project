@@ -74,3 +74,4 @@ export class SimulatedAdapter implements IVerificationProvider {
 }
 
 export const simulatedAdapter = new SimulatedAdapter();
+

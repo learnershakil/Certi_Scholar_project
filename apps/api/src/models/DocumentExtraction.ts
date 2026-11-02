@@ -83,3 +83,4 @@ DocumentExtractionSchema.index({ instituteId: 1, documentId: 1, version: -1 });
 export const DocumentExtractionModel: Model<IDocumentExtraction> =
   (mongoose.models.DocumentExtraction as Model<IDocumentExtraction>) ||
   mongoose.model<IDocumentExtraction>('DocumentExtraction', DocumentExtractionSchema);
+

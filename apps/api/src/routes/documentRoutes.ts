@@ -40,9 +40,17 @@ documentRouter.post('/', async (req: Request, res: Response) => {
       user.roles.includes(UserRole.INSTITUTE_ADMIN) || user.isSuperAdmin;
     const studentId = isPrivilegedStaff ? req.body.studentId || user.userId : user.userId;
 
-    const instituteId = user.isSuperAdmin ? parsed.instituteId : user.instituteId || parsed.instituteId;
+    if (!user.isSuperAdmin && !user.instituteId) {
+      res.status(403).json({
+        success: false,
+        error: { message: 'Forbidden: User is not associated with an institute.' },
+      });
+      return;
+    }
 
-    if (!user.isSuperAdmin && user.instituteId && user.instituteId !== parsed.instituteId) {
+    const instituteId = user.isSuperAdmin ? parsed.instituteId : user.instituteId!;
+
+    if (!user.isSuperAdmin && user.instituteId !== parsed.instituteId) {
       res.status(403).json({
         success: false,
         error: { message: 'Forbidden: Cannot create document for another institute.' },

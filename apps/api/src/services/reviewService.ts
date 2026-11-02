@@ -11,6 +11,8 @@ import { DocumentModel } from '../models/Document';
 import { DocumentExtractionModel, IDocumentExtraction } from '../models/DocumentExtraction';
 import { CorrectionModel, ICorrection } from '../models/Correction';
 import { OCRResultModel } from '../models/OCRResult';
+import { CaseAssignmentModel } from '../models/CaseAssignment';
+import { caseAssignmentService } from './caseAssignmentService';
 import { storageService } from './storage';
 import { auditService } from './auditService';
 import { timelineService } from './timelineService';
@@ -20,6 +22,7 @@ export interface QueueFilters {
   category?: string;
   page?: number;
   limit?: number;
+  assignedOfficerId?: string;
 }
 
 export class ReviewService {
@@ -41,6 +44,26 @@ export class ReviewService {
 
     if (filters.category) {
       query.category = filters.category;
+    }
+
+    // Filter by assigned officer if specified
+    if (filters.assignedOfficerId) {
+      const assignments = await CaseAssignmentModel.find({
+        instituteId: new mongoose.Types.ObjectId(filters.instituteId),
+        officerId: new mongoose.Types.ObjectId(filters.assignedOfficerId),
+        status: { $in: ['ASSIGNED', 'IN_REVIEW'] },
+      });
+      const assignedDocIds = assignments
+        .filter((a) => a.documentId)
+        .map((a) => a.documentId);
+      const assignedAppIds = assignments
+        .filter((a) => a.applicationId)
+        .map((a) => a.applicationId);
+
+      query.$or = [
+        { _id: { $in: assignedDocIds } },
+        { applicationId: { $in: assignedAppIds } },
+      ];
     }
 
     const [items, total] = await Promise.all([
@@ -79,6 +102,12 @@ export class ReviewService {
 
     if (!isAuthorizedStaff) {
       throw new Error('Forbidden: Human review requires Verification Officer or Institute Admin role');
+    }
+
+    // Case assignment authorization
+    const isAssigned = await caseAssignmentService.isOfficerAuthorizedForDocument(documentId, actor);
+    if (!isAssigned) {
+      throw new Error('Forbidden: This case has been assigned to another verification officer');
     }
 
     // Generate short-lived presigned URL for document preview (15 mins)
@@ -127,6 +156,12 @@ export class ReviewService {
 
     if (!isAuthorized) {
       throw new Error('Forbidden: Action requires Verification Officer or Institute Admin role');
+    }
+
+    // Case assignment authorization
+    const isAssigned = await caseAssignmentService.isOfficerAuthorizedForDocument(documentId, actor);
+    if (!isAssigned) {
+      throw new Error('Forbidden: This case has been assigned to another verification officer');
     }
 
     // Fetch latest extraction

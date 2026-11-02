@@ -145,3 +145,4 @@ scholarshipRouter.post('/:id/evaluate', async (req: Request, res: Response) => {
     res.status(status).json({ success: false, error: { message } });
   }
 });
+

@@ -46,3 +46,4 @@ ClassificationRecordSchema.index({ instituteId: 1, documentId: 1 });
 export const ClassificationRecordModel: Model<IClassificationRecord> =
   (mongoose.models.ClassificationRecord as Model<IClassificationRecord>) ||
   mongoose.model<IClassificationRecord>('ClassificationRecord', ClassificationRecordSchema);
+

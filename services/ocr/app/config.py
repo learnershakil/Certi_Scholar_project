@@ -10,3 +10,4 @@ class OcrServiceConfig(BaseModel):
     tesseract_cmd: str | None = os.getenv("TESSERACT_CMD", "/usr/bin/tesseract")
 
 config = OcrServiceConfig()
+

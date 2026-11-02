@@ -3,7 +3,10 @@
   "private": true,
   "scripts": {
     "build": "turbo run build",
-    "dev": "turbo run dev",
+    "dev": "bun scripts/dev.mjs",
+    "dev:monorepo": "turbo run dev",
+    "dev:infra": "docker compose up -d",
+    "dev:worker": "bun apps/api/src/worker.ts",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",

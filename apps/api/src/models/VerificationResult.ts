@@ -55,3 +55,4 @@ VerificationResultSchema.index({ instituteId: 1, documentId: 1, provider: 1 });
 export const VerificationResultModel: Model<IVerificationResult> =
   (mongoose.models.VerificationResult as Model<IVerificationResult>) ||
   mongoose.model<IVerificationResult>('VerificationResult', VerificationResultSchema);
+
