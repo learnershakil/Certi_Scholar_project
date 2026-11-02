@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { ShieldCheck, LogOut, User, Building, ExternalLink, Menu, X } from 'lucide-react';
+import { ShieldCheck, LogOut, User, Menu, X, ArrowUpRight } from 'lucide-react';
 import { apiClient } from '../lib/api';
 
 export function Navbar() {
@@ -18,9 +18,7 @@ export function Navbar() {
       .then((res) => {
         if (res?.data) setCurrentUser(res.data);
       })
-      .catch(() => {
-        // Not logged in or session expired
-      });
+      .catch(() => {});
   }, [pathname]);
 
   const handleLogout = async () => {
@@ -33,142 +31,126 @@ export function Navbar() {
     }
   };
 
-  const navLinks = [
-    { href: '/student', label: 'Student Portal', roles: ['STUDENT'] },
-    { href: '/verification', label: 'Review Queue', roles: ['VERIFICATION_OFFICER', 'INSTITUTE_ADMIN'] },
-    { href: '/institute', label: 'Institute Admin', roles: ['INSTITUTE_ADMIN'] },
-    { href: '/scholarship', label: 'Scholarships', roles: ['SCHOLARSHIP_OFFICER', 'INSTITUTE_ADMIN'] },
-    { href: '/dev/diagnostics', label: 'System Diagnostics', roles: [] },
-  ];
-
   return (
-    <nav className="sticky top-0 z-50 glass-panel border-b border-[#1C2438] bg-[#07090E]/85 backdrop-blur-md">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Brand */}
-          <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-                <ShieldCheck className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-400 bg-clip-text text-transparent">
-                  CertiScholar
-                </span>
-                <span className="text-[10px] tracking-widest uppercase text-cyan-400/80 font-mono -mt-1">
-                  Enterprise SaaS
-                </span>
-              </div>
+    <nav className="sticky top-0 z-50 bg-[#06120E]/80 backdrop-blur-xl border-b border-[#143327]">
+      <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        {/* Brand */}
+        <div className="flex items-center gap-8">
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#10B981] to-[#00DC82] flex items-center justify-center shadow-lg shadow-emerald-500/25 group-hover:scale-105 transition-transform">
+              <ShieldCheck className="w-5 h-5 text-[#06120E] stroke-[2.5]" />
+            </div>
+            <span className="font-bold text-xl tracking-tight text-white group-hover:text-emerald-400 transition-colors">
+              CertiScholar
+            </span>
+          </Link>
+
+          {/* Desktop Nav Links from Mockup */}
+          <div className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
+            <Link href="/#product" className="hover:text-white transition-colors">
+              Product
+            </Link>
+            <Link href="/#solutions" className="hover:text-white transition-colors">
+              Solutions
+            </Link>
+            <Link href="/#resources" className="hover:text-white transition-colors">
+              Resources
+            </Link>
+            <Link href="/#pricing" className="hover:text-white transition-colors">
+              Pricing
             </Link>
           </div>
+        </div>
 
-          {/* Desktop Nav Links */}
-          <div className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => {
-              const isActive = pathname.startsWith(link.href);
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800/60'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* User Status / Login */}
-          <div className="hidden md:flex items-center gap-3">
-            {currentUser ? (
-              <div className="flex items-center gap-3 pl-3 border-l border-slate-800">
-                <div className="flex flex-col text-right">
-                  <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5 justify-end">
-                    <User className="w-3.5 h-3.5 text-cyan-400" />
-                    {currentUser.email || currentUser.userId.substring(0, 8)}
-                  </span>
-                  <div className="flex items-center gap-1 justify-end">
-                    {currentUser.roles?.map((role: string) => (
-                      <span
-                        key={role}
-                        className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/60"
-                      >
-                        {role}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  title="Sign Out"
-                  className="p-2 rounded-md text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
+        {/* Right Action Buttons */}
+        <div className="hidden md:flex items-center gap-4">
+          {currentUser ? (
+            <div className="flex items-center gap-3 pl-3 border-l border-[#143327]">
+              <div className="flex flex-col text-right">
+                <span className="text-xs font-semibold text-white flex items-center gap-1.5 justify-end">
+                  <User className="w-3.5 h-3.5 text-emerald-400" />
+                  {currentUser.email || currentUser.userId.substring(0, 8)}
+                </span>
+                <span className="text-[10px] font-mono text-emerald-400">
+                  {currentUser.roles?.[0] || 'STUDENT'}
+                </span>
               </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Link href="/auth/sign-in" className="btn-secondary text-xs py-1.5 px-3">
-                  Sign In
-                </Link>
-                <Link href="/student" className="btn-primary text-xs py-1.5 px-3">
-                  Upload Document
-                </Link>
-              </div>
-            )}
-          </div>
+              <button
+                onClick={handleLogout}
+                title="Sign Out"
+                className="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/30 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <Link
+                href="/auth/sign-in"
+                className="text-sm font-medium text-slate-200 hover:text-white transition-colors px-3 py-2"
+              >
+                Login
+              </Link>
+              <Link href="/auth/sign-in" className="btn-pill-white text-xs py-2 px-5">
+                Get Started
+              </Link>
+            </div>
+          )}
+        </div>
 
-          {/* Mobile menu button */}
-          <div className="flex md:hidden">
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-md text-slate-400 hover:text-white hover:bg-slate-800"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-            </button>
-          </div>
+        {/* Mobile menu button */}
+        <div className="flex md:hidden">
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-emerald-950/40"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </div>
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-800 bg-[#0D111D] px-4 pt-2 pb-4 space-y-1">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-slate-800"
-            >
-              {link.label}
-            </Link>
-          ))}
-          {currentUser ? (
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                handleLogout();
-              }}
-              className="w-full text-left px-3 py-2 text-rose-400 font-medium hover:bg-rose-950/30 rounded-md"
-            >
-              Sign Out
-            </button>
-          ) : (
+        <div className="md:hidden border-t border-[#143327] bg-[#081712] px-6 py-4 space-y-3">
+          <Link
+            href="/student"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block text-slate-300 hover:text-white font-medium"
+          >
+            Student Workspace
+          </Link>
+          <Link
+            href="/verification"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block text-slate-300 hover:text-white font-medium"
+          >
+            Review Queue
+          </Link>
+          <Link
+            href="/institute"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block text-slate-300 hover:text-white font-medium"
+          >
+            Institute Dashboard
+          </Link>
+          <Link
+            href="/scholarship"
+            onClick={() => setMobileMenuOpen(false)}
+            className="block text-slate-300 hover:text-white font-medium"
+          >
+            Scholarship Officer
+          </Link>
+          <div className="pt-3 border-t border-[#143327]">
             <Link
               href="/auth/sign-in"
               onClick={() => setMobileMenuOpen(false)}
-              className="block w-full text-center mt-2 btn-primary"
+              className="block w-full text-center btn-pill-white text-xs py-2.5"
             >
               Sign In
             </Link>
-          )}
+          </div>
         </div>
       )}
     </nav>
   );
 }
-

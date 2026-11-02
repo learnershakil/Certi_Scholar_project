@@ -1,17 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   UploadCloud,
   FileCheck,
   Shield,
-  Clock,
-  AlertTriangle,
-  Award,
   KeyRound,
   ExternalLink,
   RefreshCw,
   CheckCircle2,
+  AlertTriangle,
+  Award,
 } from 'lucide-react';
 import { AppShell } from '../../components/AppShell';
 import { StatusBadge } from '../../components/StatusBadge';
@@ -30,8 +30,6 @@ export default function StudentPortal() {
   const [uploading, setUploading] = useState(false);
   const [uploadStep, setUploadStep] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
-
-  // Consent modal state
   const [creatingConsent, setCreatingConsent] = useState(false);
 
   const loadData = async () => {
@@ -46,7 +44,6 @@ export default function StudentPortal() {
       const consentRes = await apiClient.getConsentGrants();
       setConsentGrants(consentRes.data || []);
 
-      // If documents exist, check recommendation for the first application
       if (docsRes.data && docsRes.data.length > 0 && docsRes.data[0]) {
         const appId = docsRes.data[0].applicationId;
         try {
@@ -106,7 +103,6 @@ export default function StudentPortal() {
       await apiClient.uploadFileBuffer(docId, selectedFile);
       setUploadStep('Scanned clean! BullMQ worker queued for OCR & extraction...');
 
-      // Refresh documents
       await loadData();
       setSelectedFile(null);
       setTimeout(() => setUploadStep(null), 3000);
@@ -136,21 +132,12 @@ export default function StudentPortal() {
     }
   };
 
-  const handleRevokeConsent = async (grantId: string) => {
-    try {
-      await apiClient.revokeConsentGrant(grantId);
-      await loadData();
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Failed to revoke consent');
-    }
-  };
-
   return (
     <AppShell
-      title="Student Document & Eligibility Workspace"
-      subtitle="Upload academic marksheet and revenue certificates for automated intake verification."
+      title="Upload Documents"
+      subtitle="Submit your academic and supporting documents for scholarship evaluation."
       roleBadge="STUDENT APPLICANT"
-      breadcrumbs={[{ label: 'Student Workspace' }]}
+      breadcrumbs={[{ label: 'Upload Documents' }]}
       action={
         <button
           onClick={loadData}
@@ -162,111 +149,170 @@ export default function StudentPortal() {
       }
     >
       <div className="space-y-8">
-        {/* Upload Card */}
-        <div className="glass-panel p-6 rounded-2xl border border-[#1C2438]">
-          <h2 className="text-lg font-bold text-white mb-1 flex items-center gap-2">
-            <UploadCloud className="w-5 h-5 text-cyan-400" />
-            Secure Document Intake & Scan
-          </h2>
-          <p className="text-xs text-slate-400 mb-6">
-            Files are validated against 10MB boundaries and streamed through live ClamAV antivirus.
-          </p>
-
+        {/* Upload Container (Matching Screen 3) */}
+        <div className="p-8 rounded-3xl bg-white text-slate-900 shadow-xl">
           {uploadError && (
-            <div className="mb-4 p-3 rounded-lg bg-rose-950/60 border border-rose-800 text-rose-300 text-xs flex items-center gap-2">
+            <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{uploadError}</span>
             </div>
           )}
 
           {uploadStep && (
-            <div className="mb-4 p-3 rounded-lg bg-cyan-950/60 border border-cyan-800 text-cyan-300 text-xs flex items-center gap-2">
+            <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
               <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
               <span>{uploadStep}</span>
             </div>
           )}
 
-          <form onSubmit={handleUploadSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Document Category
-                </label>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            {/* Dropzone (8 cols) */}
+            <form onSubmit={handleUploadSubmit} className="lg:col-span-8 space-y-4">
+              <div className="p-10 border-2 border-dashed border-slate-300 rounded-2xl text-center hover:border-emerald-500 transition-colors bg-slate-50/60 relative">
+                <input
+                  type="file"
+                  id="file-upload"
+                  accept="application/pdf,image/png,image/jpeg"
+                  onChange={handleFileChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                  <UploadCloud className="w-7 h-7" />
+                </div>
+                <h4 className="text-sm font-bold text-slate-900">
+                  {selectedFile ? selectedFile.name : 'Drag & drop your files here'}
+                </h4>
+                <p className="text-xs text-slate-500 mt-1">
+                  {selectedFile ? `${(selectedFile.size / 1024).toFixed(1)} KB` : 'or click to browse'}
+                </p>
+                <span className="text-[11px] font-mono text-slate-400 mt-3 block">
+                  Supported: PDF, JPG, PNG • Max size: 10MB per file
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
                 <select
                   value={categoryHint}
                   onChange={(e) => setCategoryHint(e.target.value)}
-                  className="input-field"
+                  className="p-2 border border-slate-200 rounded-xl text-xs bg-slate-50 text-slate-800"
                 >
-                  <option value="ACADEMIC_MARKSHEET">CBSE Class XII Marksheet</option>
-                  <option value="INCOME_CERTIFICATE">State Income Certificate</option>
-                  <option value="IDENTITY_PROOF">Identity / Student Card</option>
+                  <option value="ACADEMIC_MARKSHEET">Marksheet (Class XII)</option>
+                  <option value="INCOME_CERTIFICATE">Income Certificate</option>
+                  <option value="IDENTITY_PROOF">Identity Card</option>
                 </select>
-              </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">
-                  Select PDF File (Max 10MB)
-                </label>
-                <input
-                  type="file"
-                  accept="application/pdf,image/png,image/jpeg"
-                  onChange={handleFileChange}
-                  className="input-field text-xs file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-cyan-500/20 file:text-cyan-300 hover:file:bg-cyan-500/30"
-                />
+                <button
+                  type="submit"
+                  disabled={!selectedFile || uploading}
+                  className="btn-primary text-xs py-2 px-6"
+                >
+                  {uploading ? 'Scanning & Ingesting...' : 'Upload & Start Pipeline →'}
+                </button>
               </div>
-            </div>
+            </form>
 
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={!selectedFile || uploading}
-                className="btn-primary text-xs py-2 px-4"
-              >
-                {uploading ? 'Processing Intake...' : 'Upload & Start Verification Pipeline'}
-              </button>
+            {/* Required Documents (4 cols) */}
+            <div className="lg:col-span-4 space-y-3">
+              <span className="text-xs font-bold text-slate-900 uppercase font-mono tracking-wider block mb-2">
+                Required Documents
+              </span>
+              <div className="space-y-2.5 text-xs">
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold block text-slate-800">Marksheet (Latest)</span>
+                    <span className="text-[10px] text-slate-500">Academic Score Evidence</span>
+                  </div>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold block text-slate-800">Identity Document</span>
+                    <span className="text-[10px] text-slate-500">Aadhaar / PAN / Student ID</span>
+                  </div>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                  <div>
+                    <span className="font-semibold block text-slate-800">Income Certificate</span>
+                    <span className="text-[10px] text-slate-500">Last Financial Year</span>
+                  </div>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                </div>
+              </div>
+              <span className="text-[11px] font-semibold text-emerald-700 cursor-pointer block pt-2">
+                + View Guidelines
+              </span>
             </div>
-          </form>
+          </div>
+
+          {/* Stepper at Bottom of Screen 3 */}
+          <div className="mt-10 pt-6 border-t border-slate-100 flex items-center justify-between max-w-2xl mx-auto text-center">
+            <div>
+              <div className="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center mx-auto mb-1">
+                1
+              </div>
+              <span className="text-xs font-bold text-slate-800 block">Upload</span>
+              <span className="text-[10px] text-slate-400">Submit documents</span>
+            </div>
+            <div className="w-16 h-0.5 bg-emerald-500" />
+            <div>
+              <div className="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center mx-auto mb-1">
+                2
+              </div>
+              <span className="text-xs font-bold text-slate-800 block">Process</span>
+              <span className="text-[10px] text-slate-400">OCR & Extraction</span>
+            </div>
+            <div className="w-16 h-0.5 bg-emerald-500" />
+            <div>
+              <div className="w-7 h-7 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center mx-auto mb-1">
+                3
+              </div>
+              <span className="text-xs font-bold text-slate-800 block">Review</span>
+              <span className="text-[10px] text-slate-400">Verification & Checks</span>
+            </div>
+            <div className="w-16 h-0.5 bg-slate-200" />
+            <div>
+              <div className="w-7 h-7 rounded-full bg-slate-200 text-slate-600 font-bold text-xs flex items-center justify-center mx-auto mb-1">
+                4
+              </div>
+              <span className="text-xs font-bold text-slate-500 block">Result</span>
+              <span className="text-[10px] text-slate-400">Recommendation</span>
+            </div>
+          </div>
         </div>
 
-        {/* Uploaded Documents Grid */}
-        <div className="glass-panel p-6 rounded-2xl border border-[#1C2438]">
-          <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <FileCheck className="w-5 h-5 text-cyan-400" />
-            Submitted Documents & Verification State
-          </h2>
+        {/* Submitted Documents & Timeline */}
+        <div className="glass-panel p-6 rounded-3xl border border-[#143327]">
+          <h3 className="text-base font-bold text-white mb-4 flex items-center gap-2">
+            <FileCheck className="w-5 h-5 text-emerald-400" />
+            Submitted Documents & Status
+          </h3>
 
-          {loading ? (
-            <div className="text-center py-8 text-xs text-slate-500">Loading documents...</div>
-          ) : documents.length === 0 ? (
-            <div className="text-center py-12 border border-dashed border-slate-800 rounded-xl">
-              <FileCheck className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-              <p className="text-xs text-slate-400">No documents submitted yet.</p>
-            </div>
+          {documents.length === 0 ? (
+            <div className="text-center py-8 text-xs text-slate-500">No documents submitted yet.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 font-mono">
+                  <tr className="border-b border-[#143327] text-slate-400 font-mono text-[11px]">
                     <th className="py-2.5 px-3">Filename</th>
                     <th className="py-2.5 px-3">Category</th>
                     <th className="py-2.5 px-3">Antivirus Scan</th>
-                    <th className="py-2.5 px-3">Pipeline Status</th>
-                    <th className="py-2.5 px-3">Application ID</th>
-                    <th className="py-2.5 px-3 text-right">Actions</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3 text-right">Preview</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 font-sans">
+                <tbody className="divide-y divide-[#143327]/60">
                   {documents.map((doc) => (
-                    <tr key={doc.id || doc._id} className="hover:bg-slate-900/40">
-                      <td className="py-3 px-3 font-medium text-white">{doc.originalName || doc.filename}</td>
-                      <td className="py-3 px-3 text-slate-300">{doc.category || 'PENDING'}</td>
+                    <tr key={doc.id || doc._id} className="hover:bg-emerald-950/20">
+                      <td className="py-3 px-3 font-semibold text-white">{doc.originalName || doc.filename}</td>
+                      <td className="py-3 px-3 text-slate-300 font-mono text-[11px]">{doc.category || 'PENDING'}</td>
                       <td className="py-3 px-3">
                         <StatusBadge status={doc.scanState || 'CLEAN'} type="scan" />
                       </td>
                       <td className="py-3 px-3">
-                        <StatusBadge status={doc.status} type="document" />
+                        <StatusBadge status={doc.status} />
                       </td>
-                      <td className="py-3 px-3 font-mono text-slate-400">{doc.applicationId}</td>
                       <td className="py-3 px-3 text-right">
                         <button
                           onClick={async () => {
@@ -274,10 +320,10 @@ export default function StudentPortal() {
                               const res = await apiClient.getViewUrl(doc.id || doc._id);
                               window.open(res.data.viewUrl, '_blank');
                             } catch (e) {
-                              alert('Unable to load document view URL');
+                              alert('Preview URL generation failed');
                             }
                           }}
-                          className="text-cyan-400 hover:text-cyan-300 font-medium inline-flex items-center gap-1"
+                          className="text-emerald-400 hover:text-emerald-300 font-semibold inline-flex items-center gap-1"
                         >
                           View <ExternalLink className="w-3 h-3" />
                         </button>
@@ -290,86 +336,28 @@ export default function StudentPortal() {
           )}
         </div>
 
-        {/* Explainable Recommendation Dossier (M9) */}
+        {/* Explainable Recommendation (Screen 6 Preview) */}
         {recommendation && (
-          <div className="glass-panel p-6 rounded-2xl border border-indigo-900/40 bg-gradient-to-br from-indigo-950/20 to-black/60">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Award className="w-5 h-5 text-indigo-400" />
-                Scholarship Eligibility Determination (M9)
-              </h2>
-              <StatusBadge status={recommendation.status} />
+          <div className="p-8 rounded-3xl bg-white text-slate-900 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div>
+              <span className="text-xs font-bold text-slate-400 uppercase font-mono tracking-wider block mb-1">
+                Final Recommendation
+              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-slate-900">{recommendation.status}</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800">
+                  {(recommendation.confidenceScore * 100).toFixed(0)}% Score
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 mt-2 max-w-xl">{recommendation.studentExplanation}</p>
             </div>
 
-            <p className="text-xs text-slate-400 mb-4 font-mono">
-              Confidence Calibrated Score: {(recommendation.confidenceScore * 100).toFixed(1)}% |
-              Generated: {new Date(recommendation.createdAt).toLocaleString()}
-            </p>
-
-            <div className="p-4 rounded-xl bg-black/50 border border-slate-800 text-sm text-slate-200 leading-relaxed font-sans">
-              {recommendation.studentExplanation}
-            </div>
+            <Link href="/scholarship" className="btn-pill-white bg-slate-900 text-white text-xs py-3 px-6 shadow hover:bg-slate-800 shrink-0">
+              View Dossier Details →
+            </Link>
           </div>
         )}
-
-        {/* Certi Adapter Locker Consent Manager (M7) */}
-        <div className="glass-panel p-6 rounded-2xl border border-[#1C2438]">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <KeyRound className="w-5 h-5 text-cyan-400" />
-                Certi Adapter Digital Locker Consent Grants (M7)
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Grant 30-day read-only access to Certi Adapter for authentic issuer retrieval.
-              </p>
-            </div>
-            <button
-              onClick={handleCreateCertiConsent}
-              disabled={creatingConsent || !documents.length}
-              className="btn-secondary text-xs py-1.5 px-3"
-            >
-              {creatingConsent ? 'Granting Consent...' : 'Grant 30-Day Consent'}
-            </button>
-          </div>
-
-          {consentGrants.length === 0 ? (
-            <div className="text-xs text-slate-500 py-4 text-center border border-dashed border-slate-800 rounded-lg">
-              No active digital locker consent grants recorded.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {consentGrants.map((g) => (
-                <div
-                  key={g.id || g._id}
-                  className="p-3.5 rounded-xl bg-black/40 border border-slate-800 flex items-center justify-between"
-                >
-                  <div>
-                    <span className="text-xs font-bold text-white font-mono">{g.provider}</span>
-                    <span className="text-[11px] text-slate-400 block mt-0.5">
-                      Granted: {new Date(g.grantedAt).toLocaleDateString()} | Expires:{' '}
-                      {new Date(g.expiresAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div>
-                    {g.isRevoked ? (
-                      <span className="text-xs text-slate-500 font-mono">REVOKED</span>
-                    ) : (
-                      <button
-                        onClick={() => handleRevokeConsent(g.id || g._id)}
-                        className="text-xs text-rose-400 hover:text-rose-300 font-mono"
-                      >
-                        Revoke Access
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </AppShell>
   );
 }
-
