@@ -1,9 +1,11 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
+import { UserRole } from '@repo/contracts';
 
 export interface IUser extends Document {
-  email?: string;
-  phone?: string;
+  email: string;
   name?: string;
+  role: UserRole;
+  roles?: UserRole[]; // legacy/compat
   isSuperAdmin: boolean;
   otpHash?: string;
   otpExpiresAt?: Date;
@@ -16,9 +18,14 @@ export interface IUser extends Document {
 
 const UserSchema = new Schema<IUser>(
   {
-    email: { type: String, lowercase: true, trim: true, index: true },
-    phone: { type: String, trim: true, index: true },
+    email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
     name: { type: String, trim: true },
+    role: {
+      type: String,
+      enum: [UserRole.STUDENT, UserRole.OFFICER, UserRole.ADMIN],
+      default: UserRole.STUDENT,
+      index: true,
+    },
     isSuperAdmin: { type: Boolean, default: false },
     otpHash: { type: String },
     otpExpiresAt: { type: Date },

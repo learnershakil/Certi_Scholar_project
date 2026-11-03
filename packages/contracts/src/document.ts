@@ -64,7 +64,7 @@ export const CreateDocumentUploadSchema = z.object({
   mimeType: z.enum(ALLOWED_MIME_TYPES),
   fileSize: z.number().positive().max(MAX_FILE_SIZE_DEFAULT),
   applicationId: z.string().min(1),
-  instituteId: z.string().min(1),
+  instituteId: z.string().optional().default('660000000000000000000001'),
   categoryHint: DocumentTypeCategorySchema.optional(),
 });
 

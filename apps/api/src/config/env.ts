@@ -79,13 +79,18 @@ export const config = {
   clamavHost: process.env.CLAMAV_HOST || '127.0.0.1',
   clamavPort: parseInt(process.env.CLAMAV_PORT || '3310', 10),
   
-  // OCR Service (M2)
+  // OCR Service (M2) — 100% Local Tesseract
   ocrServiceUrl: process.env.OCR_SERVICE_URL || 'http://127.0.0.1:8000',
   ocrServiceKey,
+  ocrProvider: process.env.OCR_PROVIDER || 'tesseract',
   
-  // Classification (M3)
-  geminiApiKey: process.env.GEMINI_API_KEY || '',
-  geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+  // Local Nodemailer SMTP Service
+  smtpHost: process.env.SMTP_HOST || '127.0.0.1',
+  smtpPort: parseInt(process.env.SMTP_PORT || '1025', 10),
+  smtpSecure: process.env.SMTP_SECURE === 'true',
+  smtpUser: process.env.SMTP_USER || '',
+  smtpPass: process.env.SMTP_PASS || '',
+  smtpFrom: process.env.SMTP_FROM || 'CertiScholar Security <no-reply@certischolar.local>',
   
   // Verification (M7)
   enableSimulatedProvider: process.env.ENABLE_SIMULATED_PROVIDER !== 'false',

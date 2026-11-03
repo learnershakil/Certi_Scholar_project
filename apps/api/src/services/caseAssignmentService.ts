@@ -110,7 +110,7 @@ export class CaseAssignmentService {
     actor: AuthSessionPayload
   ): Promise<boolean> {
     // Admins and Super Admins always have access
-    if (actor.isSuperAdmin || actor.roles.includes(UserRole.INSTITUTE_ADMIN)) {
+    if (actor.isSuperAdmin || actor.role === UserRole.ADMIN || actor.roles?.includes(UserRole.ADMIN) || actor.roles?.includes(UserRole.INSTITUTE_ADMIN)) {
       return true;
     }
 

@@ -94,14 +94,18 @@ export class ReviewService {
       throw new Error('Forbidden: Unauthorized cross-tenant document review access');
     }
 
-    // Only Verification Officers or Institute Admins
+    // Only Officers or Admins
     const isAuthorizedStaff =
-      actor.roles.includes(UserRole.VERIFICATION_OFFICER) ||
-      actor.roles.includes(UserRole.INSTITUTE_ADMIN) ||
+      actor.role === UserRole.OFFICER ||
+      actor.role === UserRole.ADMIN ||
+      actor.roles?.includes(UserRole.OFFICER) ||
+      actor.roles?.includes(UserRole.ADMIN) ||
+      actor.roles?.includes(UserRole.VERIFICATION_OFFICER) ||
+      actor.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
       actor.isSuperAdmin;
 
     if (!isAuthorizedStaff) {
-      throw new Error('Forbidden: Human review requires Verification Officer or Institute Admin role');
+      throw new Error('Forbidden: Human review requires Officer or Admin role');
     }
 
     // Case assignment authorization
@@ -150,12 +154,16 @@ export class ReviewService {
 
     // Role check: Only officers/admins can perform review actions
     const isAuthorized =
-      actor.roles.includes(UserRole.VERIFICATION_OFFICER) ||
-      actor.roles.includes(UserRole.INSTITUTE_ADMIN) ||
+      actor.role === UserRole.OFFICER ||
+      actor.role === UserRole.ADMIN ||
+      actor.roles?.includes(UserRole.OFFICER) ||
+      actor.roles?.includes(UserRole.ADMIN) ||
+      actor.roles?.includes(UserRole.VERIFICATION_OFFICER) ||
+      actor.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
       actor.isSuperAdmin;
 
     if (!isAuthorized) {
-      throw new Error('Forbidden: Action requires Verification Officer or Institute Admin role');
+      throw new Error('Forbidden: Action requires Officer or Admin role');
     }
 
     // Case assignment authorization

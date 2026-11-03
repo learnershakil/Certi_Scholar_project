@@ -9,7 +9,7 @@ import { DocumentModel } from '../../models/Document';
 import { ExtractionProfileModel, IExtractionProfile } from '../../models/ExtractionProfile';
 import { ClassificationRecordModel } from '../../models/ClassificationRecord';
 import { sanitizeOcrTextForClassification } from './sanitizer';
-import { GeminiClassifierProvider } from './geminiProvider';
+import { DeterministicClassifierProvider } from './deterministicProvider';
 import { timelineService } from '../timelineService';
 
 const SEED_PROFILES = [
@@ -69,10 +69,10 @@ export async function ensureDefaultExtractionProfiles(): Promise<void> {
 }
 
 export class ClassificationService {
-  private provider: GeminiClassifierProvider;
+  private provider: DeterministicClassifierProvider;
 
   constructor() {
-    this.provider = new GeminiClassifierProvider();
+    this.provider = new DeterministicClassifierProvider();
   }
 
   async classifyDocument(
@@ -89,7 +89,8 @@ export class ClassificationService {
     const sanitizedText = sanitizeOcrTextForClassification(rawOcrText);
 
     // 2. Classify via Provider
-    const { result, provider } = await this.provider.classify(sanitizedText);
+    const result = this.provider.classify(sanitizedText);
+    const provider = 'DETERMINISTIC_HEURISTIC';
 
     // 3. Resolve active profile from database (Gemini CANNOT invent profiles)
     let resolvedProfile: IExtractionProfile | null = null;

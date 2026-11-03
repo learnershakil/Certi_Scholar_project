@@ -1,32 +1,36 @@
 import { z } from 'zod';
 
 export enum UserRole {
-  PLATFORM_SUPER_ADMIN = 'PLATFORM_SUPER_ADMIN',
-  INSTITUTE_ADMIN = 'INSTITUTE_ADMIN',
-  VERIFICATION_OFFICER = 'VERIFICATION_OFFICER',
-  SCHOLARSHIP_OFFICER = 'SCHOLARSHIP_OFFICER',
   STUDENT = 'STUDENT',
+  OFFICER = 'OFFICER',
+  ADMIN = 'ADMIN',
+  // Legacy aliases mapped internally for backwards compatibility if referenced:
+  VERIFICATION_OFFICER = 'OFFICER',
+  SCHOLARSHIP_OFFICER = 'OFFICER',
+  INSTITUTE_ADMIN = 'ADMIN',
+  PLATFORM_SUPER_ADMIN = 'ADMIN',
 }
 
 export const UserRoleSchema = z.nativeEnum(UserRole);
 
 export enum OtpDeliveryChannel {
   EMAIL = 'EMAIL',
-  WHATSAPP = 'WHATSAPP',
 }
 
 export const OtpDeliveryChannelSchema = z.nativeEnum(OtpDeliveryChannel);
 
 export const RequestOtpSchema = z.object({
-  identifier: z.string().min(3).max(100), // email or phone
-  channel: OtpDeliveryChannelSchema,
+  email: z.string().email('Valid email address is required').optional(),
+  identifier: z.string().optional(), // fallback alias if passed
+  channel: z.string().optional(),
   instituteId: z.string().optional(),
 });
 
 export type RequestOtpDto = z.infer<typeof RequestOtpSchema>;
 
 export const VerifyOtpSchema = z.object({
-  identifier: z.string().min(3).max(100),
+  email: z.string().email('Valid email address is required').optional(),
+  identifier: z.string().optional(),
   code: z.string().min(4).max(8),
   instituteId: z.string().optional(),
 });
@@ -35,11 +39,10 @@ export type VerifyOtpDto = z.infer<typeof VerifyOtpSchema>;
 
 export interface AuthSessionPayload {
   userId: string;
-  email?: string;
-  phone?: string;
-  name?: string;
+  email: string;
+  name: string;
+  role: UserRole;
   roles: UserRole[];
   instituteId?: string;
-  isSuperAdmin: boolean;
+  isSuperAdmin?: boolean;
 }
-

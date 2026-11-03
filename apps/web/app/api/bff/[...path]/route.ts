@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const DEFAULT_SERVICE_KEY = 'dev-secret-key-certischolar-bff-proxy-secure-token-2026';
 const NODE_API_BASE_URL = process.env.NODE_API_BASE_URL || 'http://127.0.0.1:4000';
-const NODE_API_HTTP_KEY =
-  process.env.NODE_API_HTTP_KEY ||
-  (process.env.NODE_ENV !== 'production'
-    ? 'dev-secret-key-certischolar-bff-proxy-secure-token-2026'
-    : undefined);
+const NODE_API_HTTP_KEY = process.env.NODE_API_HTTP_KEY || DEFAULT_SERVICE_KEY;
 
 /**
  * Universal Next.js BFF proxy handler.
@@ -36,13 +33,13 @@ async function proxyRequest(request: NextRequest, { params }: { params: Promise<
   // Dedicated BFF logout endpoint
   if (joinedPath === 'v1/auth/logout' && request.method.toUpperCase() === 'POST') {
     const logoutRes = NextResponse.json({ success: true, message: 'Logged out successfully' });
-    logoutRes.cookies.set('certischolar_session', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+    const cookieOpts = {
       path: '/',
       expires: new Date(0),
-    });
+    };
+    logoutRes.cookies.set('certischolar_session', '', { ...cookieOpts, httpOnly: true });
+    logoutRes.cookies.set('certischolar_token', '', cookieOpts);
+    logoutRes.cookies.set('certischolar_role', '', cookieOpts);
     return logoutRes;
   }
 
@@ -102,7 +99,7 @@ async function proxyRequest(request: NextRequest, { params }: { params: Promise<
       }
     });
 
-    // Check if this was a successful OTP verify call: set HttpOnly cookie
+    // Check if this was a successful OTP verify call: set session cookies
     if (joinedPath === 'v1/auth/otp/verify' && apiResponse.ok) {
       try {
         const text = new TextDecoder().decode(responseData);
@@ -112,13 +109,30 @@ async function proxyRequest(request: NextRequest, { params }: { params: Promise<
             status: apiResponse.status,
             statusText: apiResponse.statusText,
           });
+          const maxAge = 7 * 24 * 60 * 60; // 7 days
           cookieRes.cookies.set('certischolar_session', json.data.token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax',
             path: '/',
-            maxAge: 7 * 24 * 60 * 60, // 7 days
+            maxAge,
           });
+          cookieRes.cookies.set('certischolar_token', json.data.token, {
+            httpOnly: false,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge,
+          });
+          if (json.data.user?.role) {
+            cookieRes.cookies.set('certischolar_role', json.data.user.role, {
+              httpOnly: false,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              path: '/',
+              maxAge,
+            });
+          }
           return cookieRes;
         }
       } catch (_) {}

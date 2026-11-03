@@ -11,7 +11,7 @@ export default function SignInPage() {
   const router = useRouter();
   const cardRef = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<'REQUEST' | 'VERIFY'>('REQUEST');
-  const [identifier, setIdentifier] = useState('student.demo@inst-a.edu');
+  const [identifier, setIdentifier] = useState('student@certischolar.edu');
   const [otpCode, setOtpCode] = useState('123456');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export default function SignInPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiClient.requestOtp(identifier, 'EMAIL' as any);
+      const res = await apiClient.requestOtp(identifier);
       setSuccessMsg(res.data?.message || 'Verification code delivered to inbox.');
       setStep('VERIFY');
     } catch (err: unknown) {
@@ -49,13 +49,15 @@ export default function SignInPage() {
     setError(null);
     try {
       const res = await apiClient.verifyOtp(identifier, otpCode);
-      const roles = res.user?.roles || [];
+      const role = (res.user?.role || (res.user?.roles && res.user.roles[0]) || 'STUDENT').toUpperCase();
 
-      if (roles.includes('STUDENT' as any)) router.push('/student');
-      else if (roles.includes('VERIFICATION_OFFICER' as any)) router.push('/verification');
-      else if (roles.includes('INSTITUTE_ADMIN' as any)) router.push('/institute');
-      else if (roles.includes('SCHOLARSHIP_OFFICER' as any)) router.push('/scholarship');
-      else router.push('/student');
+      if (role === 'ADMIN') {
+        router.push('/admin');
+      } else if (role === 'OFFICER' || role === 'VERIFICATION_OFFICER' || role === 'SCHOLARSHIP_OFFICER') {
+        router.push('/officer');
+      } else {
+        router.push('/student');
+      }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Verification failed');
     } finally {
@@ -64,10 +66,10 @@ export default function SignInPage() {
   };
 
   const presetAccounts = [
-    { label: 'Student', email: 'student.demo@inst-a.edu', role: 'Applicant' },
-    { label: 'Verification Officer', email: 'officer.demo@inst-a.edu', role: 'Reviewer' },
-    { label: 'Institute Admin', email: 'admin.demo@inst-a.edu', role: 'Tenant Admin' },
-    { label: 'Scholarship Officer', email: 'scholarship.demo@inst-a.edu', role: 'Evaluator' },
+    { label: 'Student', email: 'student@certischolar.edu', role: 'Applicant' },
+    { label: 'Verification Officer', email: 'officer@certischolar.edu', role: 'Reviewer' },
+    { label: 'Organization Admin', email: 'admin@certischolar.edu', role: 'System Admin' },
+    { label: 'Demo Student (Inst A)', email: 'student.demo@inst-a.edu', role: 'Applicant' },
   ];
 
   return (

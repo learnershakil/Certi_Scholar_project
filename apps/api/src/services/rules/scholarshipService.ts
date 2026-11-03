@@ -18,9 +18,13 @@ import { timelineService } from '../timelineService';
 
 export class ScholarshipService {
   async createScholarship(dto: CreateScholarshipDto, actor: AuthSessionPayload): Promise<IScholarship> {
-    const isStaffAdmin = actor.roles.includes(UserRole.INSTITUTE_ADMIN) || actor.isSuperAdmin;
+    const isStaffAdmin =
+      actor.role === UserRole.ADMIN ||
+      actor.roles?.includes(UserRole.ADMIN) ||
+      actor.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
+      actor.isSuperAdmin;
     if (!isStaffAdmin) {
-      throw new Error('Forbidden: Only Institute Administrators can create scholarship rules');
+      throw new Error('Forbidden: Only Administrators can create scholarship rules');
     }
 
     const instituteId = actor.isSuperAdmin ? dto.instituteId : actor.instituteId!;
@@ -74,9 +78,13 @@ export class ScholarshipService {
       throw new Error('Forbidden: Unauthorized cross-tenant scholarship update');
     }
 
-    const isStaffAdmin = actor.roles.includes(UserRole.INSTITUTE_ADMIN) || actor.isSuperAdmin;
+    const isStaffAdmin =
+      actor.role === UserRole.ADMIN ||
+      actor.roles?.includes(UserRole.ADMIN) ||
+      actor.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
+      actor.isSuperAdmin;
     if (!isStaffAdmin) {
-      throw new Error('Forbidden: Only Institute Administrators can modify scholarship rules');
+      throw new Error('Forbidden: Only Administrators can modify scholarship rules');
     }
 
     let versionChanged = false;

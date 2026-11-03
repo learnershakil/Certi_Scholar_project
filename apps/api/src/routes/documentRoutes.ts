@@ -37,20 +37,15 @@ documentRouter.post('/', async (req: Request, res: Response) => {
 
     // Security fix: Students cannot upload on behalf of another student
     const isPrivilegedStaff =
-      user.roles.includes(UserRole.INSTITUTE_ADMIN) || user.isSuperAdmin;
+      user.role === UserRole.ADMIN ||
+      user.roles?.includes(UserRole.ADMIN) ||
+      user.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
+      user.isSuperAdmin;
     const studentId = isPrivilegedStaff ? req.body.studentId || user.userId : user.userId;
 
-    if (!user.isSuperAdmin && !user.instituteId) {
-      res.status(403).json({
-        success: false,
-        error: { message: 'Forbidden: User is not associated with an institute.' },
-      });
-      return;
-    }
+    const instituteId = user.instituteId || parsed.instituteId || '660000000000000000000001';
 
-    const instituteId = user.isSuperAdmin ? parsed.instituteId : user.instituteId!;
-
-    if (!user.isSuperAdmin && user.instituteId !== parsed.instituteId) {
+    if (user.instituteId && parsed.instituteId && user.instituteId !== parsed.instituteId && !user.isSuperAdmin) {
       res.status(403).json({
         success: false,
         error: { message: 'Forbidden: Cannot create document for another institute.' },
@@ -169,19 +164,21 @@ documentRouter.get('/:id', async (req: Request, res: Response) => {
     }
 
     // Student ownership check
-    if (
-      user.roles.includes(UserRole.STUDENT) &&
-      !user.roles.includes(UserRole.VERIFICATION_OFFICER) &&
-      !user.roles.includes(UserRole.INSTITUTE_ADMIN) &&
-      !user.isSuperAdmin
-    ) {
-      if (doc.studentId.toString() !== user.userId) {
-        res.status(403).json({
-          success: false,
-          error: { message: 'Forbidden: You can only view documents from your own application.' },
-        });
-        return;
-      }
+    const isOfficerOrAdmin =
+      user.role === UserRole.OFFICER ||
+      user.role === UserRole.ADMIN ||
+      user.roles?.includes(UserRole.OFFICER) ||
+      user.roles?.includes(UserRole.ADMIN) ||
+      user.roles?.includes(UserRole.VERIFICATION_OFFICER) ||
+      user.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
+      user.isSuperAdmin;
+
+    if (!isOfficerOrAdmin && doc.studentId.toString() !== user.userId) {
+      res.status(403).json({
+        success: false,
+        error: { message: 'Forbidden: You can only view documents from your own application.' },
+      });
+      return;
     }
 
     res.json({ success: true, data: doc });
@@ -238,16 +235,18 @@ documentRouter.get('/:id/timeline', async (req: Request, res: Response) => {
       return;
     }
 
-    if (
-      user.roles.includes(UserRole.STUDENT) &&
-      !user.roles.includes(UserRole.VERIFICATION_OFFICER) &&
-      !user.roles.includes(UserRole.INSTITUTE_ADMIN) &&
-      !user.isSuperAdmin
-    ) {
-      if (doc.studentId.toString() !== user.userId) {
-        res.status(403).json({ success: false, error: { message: 'Forbidden' } });
-        return;
-      }
+    const isOfficerOrAdmin =
+      user.role === UserRole.OFFICER ||
+      user.role === UserRole.ADMIN ||
+      user.roles?.includes(UserRole.OFFICER) ||
+      user.roles?.includes(UserRole.ADMIN) ||
+      user.roles?.includes(UserRole.VERIFICATION_OFFICER) ||
+      user.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
+      user.isSuperAdmin;
+
+    if (!isOfficerOrAdmin && doc.studentId.toString() !== user.userId) {
+      res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+      return;
     }
 
     const events = await timelineService.getTimeline(doc.applicationId, doc.instituteId.toString());
@@ -431,16 +430,18 @@ documentRouter.get('/:id/fields', async (req: Request, res: Response) => {
       return;
     }
 
-    if (
-      user.roles.includes(UserRole.STUDENT) &&
-      !user.roles.includes(UserRole.VERIFICATION_OFFICER) &&
-      !user.roles.includes(UserRole.INSTITUTE_ADMIN) &&
-      !user.isSuperAdmin
-    ) {
-      if (doc.studentId.toString() !== user.userId) {
-        res.status(403).json({ success: false, error: { message: 'Forbidden' } });
-        return;
-      }
+    const isOfficerOrAdmin =
+      user.role === UserRole.OFFICER ||
+      user.role === UserRole.ADMIN ||
+      user.roles?.includes(UserRole.OFFICER) ||
+      user.roles?.includes(UserRole.ADMIN) ||
+      user.roles?.includes(UserRole.VERIFICATION_OFFICER) ||
+      user.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
+      user.isSuperAdmin;
+
+    if (!isOfficerOrAdmin && doc.studentId.toString() !== user.userId) {
+      res.status(403).json({ success: false, error: { message: 'Forbidden' } });
+      return;
     }
 
     const extraction = await DocumentExtractionModel.findOne({ documentId: doc._id }).sort({ version: -1 });
@@ -631,12 +632,16 @@ documentRouter.get('/', async (req: Request, res: Response) => {
     }
 
     // Role scope
-    if (
-      user.roles.includes(UserRole.STUDENT) &&
-      !user.roles.includes(UserRole.VERIFICATION_OFFICER) &&
-      !user.roles.includes(UserRole.INSTITUTE_ADMIN) &&
-      !user.isSuperAdmin
-    ) {
+    const isOfficerOrAdmin =
+      user.role === UserRole.OFFICER ||
+      user.role === UserRole.ADMIN ||
+      user.roles?.includes(UserRole.OFFICER) ||
+      user.roles?.includes(UserRole.ADMIN) ||
+      user.roles?.includes(UserRole.VERIFICATION_OFFICER) ||
+      user.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
+      user.isSuperAdmin;
+
+    if (!isOfficerOrAdmin) {
       filter.studentId = new mongoose.Types.ObjectId(user.userId);
     }
 

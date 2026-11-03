@@ -95,8 +95,12 @@ reportingRouter.get('/audit', async (req: Request, res: Response) => {
     }
 
     const isStaff =
-      user.roles.includes(UserRole.INSTITUTE_ADMIN) ||
-      user.roles.includes(UserRole.VERIFICATION_OFFICER) ||
+      user.role === UserRole.ADMIN ||
+      user.role === UserRole.OFFICER ||
+      user.roles?.includes(UserRole.ADMIN) ||
+      user.roles?.includes(UserRole.OFFICER) ||
+      user.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
+      user.roles?.includes(UserRole.VERIFICATION_OFFICER) ||
       user.isSuperAdmin;
 
     if (!isStaff) {

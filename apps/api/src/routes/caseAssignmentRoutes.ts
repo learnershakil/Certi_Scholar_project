@@ -3,9 +3,10 @@ import { z } from 'zod';
 import { authenticateUser, requireRole } from '../middleware/auth';
 import { UserRole } from '@repo/contracts';
 import { caseAssignmentService } from '../services/caseAssignmentService';
+import { SINGLE_ORG_ID_STR } from '../config/constants';
 
 const AssignCaseSchema = z.object({
-  instituteId: z.string().min(1),
+  instituteId: z.string().optional(),
   applicationId: z.string().min(1),
   documentId: z.string().optional(),
   officerId: z.string().min(1),
@@ -18,33 +19,43 @@ caseAssignmentRouter.use(authenticateUser);
 
 /**
  * Assign a case to a verification officer.
- * Restricted to Institute Admins and Super Admins.
+ * Restricted to Admins.
  */
 caseAssignmentRouter.post(
   '/assign',
-  requireRole(UserRole.INSTITUTE_ADMIN),
+  requireRole(UserRole.ADMIN),
   async (req: Request, res: Response) => {
     try {
       const parsed = AssignCaseSchema.parse(req.body);
       const actor = req.user!;
+      const orgId = parsed.instituteId || actor.instituteId || SINGLE_ORG_ID_STR;
 
-      // Enforce tenant boundary
-      if (!actor.isSuperAdmin && actor.instituteId !== parsed.instituteId) {
-        res.status(403).json({
+      if (!actor.isSuperAdmin && actor.instituteId && parsed.instituteId && actor.instituteId !== parsed.instituteId) {
+        return res.status(403).json({
           success: false,
-          error: { message: 'Forbidden: Cannot assign cases for another institute' },
+          error: { message: 'Forbidden: Unauthorized cross-tenant case assignment' },
         });
-        return;
       }
 
-      const assignment = await caseAssignmentService.assignCase(parsed, actor);
+      const assignment = await caseAssignmentService.assignCase(
+        {
+          instituteId: orgId,
+          applicationId: parsed.applicationId,
+          documentId: parsed.documentId,
+          officerId: parsed.officerId,
+          notes: parsed.notes,
+        },
+        actor
+      );
+
       res.status(201).json({
         success: true,
         data: assignment,
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to assign case';
-      res.status(400).json({ success: false, error: { message } });
+      const status = message.toLowerCase().includes('forbidden') ? 403 : 400;
+      res.status(status).json({ success: false, error: { message } });
     }
   }
 );
@@ -54,17 +65,14 @@ caseAssignmentRouter.post(
  */
 caseAssignmentRouter.get(
   '/my-assignments',
-  requireRole(UserRole.VERIFICATION_OFFICER),
+  requireRole(UserRole.OFFICER, UserRole.ADMIN),
   async (req: Request, res: Response) => {
     try {
       const actor = req.user!;
-      if (!actor.instituteId) {
-        res.status(400).json({ success: false, error: { message: 'No institute affiliated with user' } });
-        return;
-      }
+      const orgId = actor.instituteId || SINGLE_ORG_ID_STR;
 
       const assignments = await caseAssignmentService.getOfficerAssignments(
-        actor.instituteId,
+        orgId,
         actor.userId
       );
 
@@ -80,32 +88,25 @@ caseAssignmentRouter.get(
 );
 
 /**
- * Institute Admin lists all assignments in their institute.
+ * Admin lists all assignments in organization.
  */
 caseAssignmentRouter.get(
   '/',
-  requireRole(UserRole.INSTITUTE_ADMIN),
+  requireRole(UserRole.ADMIN),
   async (req: Request, res: Response) => {
     try {
       const actor = req.user!;
-      const instituteId = actor.isSuperAdmin
-        ? (req.query.instituteId as string) || actor.instituteId || ''
-        : actor.instituteId!;
+      const orgId = actor.instituteId || SINGLE_ORG_ID_STR;
 
-      if (!instituteId) {
-        res.status(400).json({ success: false, error: { message: 'Institute ID is required' } });
-        return;
-      }
+      const assignments = await caseAssignmentService.getAllInstituteAssignments(orgId);
 
-      const assignments = await caseAssignmentService.getAllInstituteAssignments(instituteId);
       res.json({
         success: true,
         data: assignments,
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to retrieve institute assignments';
+      const message = err instanceof Error ? err.message : 'Failed to retrieve assignments';
       res.status(500).json({ success: false, error: { message } });
     }
   }
 );
-

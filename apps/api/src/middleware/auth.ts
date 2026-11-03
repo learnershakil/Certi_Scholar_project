@@ -60,11 +60,13 @@ export function requireRole(...allowedRoles: UserRole[]) {
       return;
     }
 
-    if (req.user.isSuperAdmin) {
+    if (req.user.isSuperAdmin || req.user.role === UserRole.ADMIN) {
       return next();
     }
 
-    const hasRole = req.user.roles.some((role) => allowedRoles.includes(role));
+    const userRoles = req.user.roles || [req.user.role];
+    const hasRole = userRoles.some((r) => allowedRoles.includes(r as UserRole));
+
     if (!hasRole) {
       res.status(403).json({
         success: false,
@@ -79,37 +81,3 @@ export function requireRole(...allowedRoles: UserRole[]) {
     next();
   };
 }
-
-/**
- * Enforces tenant matching: authenticated user must belong to requested institute.
- */
-export function requireTenantContext(req: Request, res: Response, next: NextFunction): void {
-  if (!req.user) {
-    res.status(401).json({
-      success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Authentication required.' },
-    });
-    return;
-  }
-
-  if (req.user.isSuperAdmin) {
-    return next();
-  }
-
-  const requestedInstituteId =
-    req.params.instituteId || req.body?.instituteId || req.query.instituteId;
-
-  if (requestedInstituteId && req.user.instituteId !== requestedInstituteId) {
-    res.status(403).json({
-      success: false,
-      error: {
-        code: 'TENANT_MISMATCH',
-        message: 'Forbidden: Cross-institute data access is strictly prohibited.',
-      },
-    });
-    return;
-  }
-
-  next();
-}
-

@@ -1,4 +1,4 @@
-# CertiScholar (P12)
+# CertiScholar
 
 > **OCR-Based Document Verification and Explainable Scholarship Eligibility Platform**  
 > **Track:** Track J — Next.js + Node.js/TypeScript + MongoDB, with a Python OCR service  

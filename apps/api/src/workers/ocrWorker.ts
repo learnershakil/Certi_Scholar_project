@@ -120,7 +120,10 @@ export function createOcrWorker(): Worker<OcrJobData> {
                 documentId,
                 {
                   userId: 'system-pipeline-worker',
-                  roles: [UserRole.INSTITUTE_ADMIN],
+                  email: 'system@certischolar.local',
+                  name: 'System Worker',
+                  role: UserRole.ADMIN,
+                  roles: [UserRole.ADMIN],
                   instituteId,
                   isSuperAdmin: true,
                 }

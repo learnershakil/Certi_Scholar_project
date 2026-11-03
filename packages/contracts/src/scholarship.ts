@@ -44,7 +44,7 @@ export const CreateScholarshipSchema = z.object({
   code: z.string().min(2).max(50),
   name: z.string().min(3).max(200),
   description: z.string().min(10),
-  instituteId: z.string().min(1),
+  instituteId: z.string().optional().default('660000000000000000000001'),
   awardAmount: z.number().positive(),
   totalSeats: z.number().int().positive().optional(),
   academicYear: z.string().min(4).max(10),

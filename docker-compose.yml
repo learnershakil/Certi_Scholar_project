@@ -2,7 +2,7 @@ name: certischolar
 
 services:
   mongodb:
-    image: mongo:7.0.14-jammy
+    image: mongo:6.0
     container_name: certischolar-mongodb
     restart: unless-stopped
     ports:
@@ -50,6 +50,16 @@ services:
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - certischolar-network
+
+  mailpit:
+    image: axllent/mailpit:v1.21
+    container_name: certischolar-mailpit
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"
     networks:
       - certischolar-network
 

@@ -43,7 +43,7 @@ export interface VerificationConsentGrant {
 
 export const CreateConsentGrantSchema = z.object({
   applicationId: z.string().min(1),
-  instituteId: z.string().min(1),
+  instituteId: z.string().optional().default('660000000000000000000001'),
   selectedDocumentIds: z.array(z.string().min(1)).min(1),
   purpose: z.string().min(3).max(200),
   durationDays: z.number().int().min(1).max(90).default(30),
