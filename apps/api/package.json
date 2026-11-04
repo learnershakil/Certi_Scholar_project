@@ -9,7 +9,7 @@
     "start": "bun dist/index.js",
     "lint": "eslint src/",
     "check-types": "tsc --noEmit",
-    "test": "bun test"
+    "test": "ENABLE_SIMULATED_PROVIDER=true bun test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.758.0",
@@ -30,13 +30,18 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@types/cors": "^2.8.17",
+    "eslint": "10.9.1",
     "@types/express": "^4.17.21",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/multer": "^1.4.12",
     "@types/supertest": "^6.0.2",
     "supertest": "^7.0.0",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "@babel/core": "8.0.1",
+    "@babel/eslint-parser": "8.0.1",
+    "@babel/preset-typescript": "8.0.1"
   }
 }

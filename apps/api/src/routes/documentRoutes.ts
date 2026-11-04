@@ -43,7 +43,7 @@ documentRouter.post('/', async (req: Request, res: Response) => {
       user.isSuperAdmin;
     const studentId = isPrivilegedStaff ? req.body.studentId || user.userId : user.userId;
 
-    const instituteId = user.instituteId || parsed.instituteId || '660000000000000000000001';
+    const instituteId = user.instituteId || parsed.instituteId || config.singleTenantInstituteId;
 
     if (user.instituteId && parsed.instituteId && user.instituteId !== parsed.instituteId && !user.isSuperAdmin) {
       res.status(403).json({
@@ -627,8 +627,10 @@ documentRouter.get('/', async (req: Request, res: Response) => {
     // Tenancy scope
     if (!user.isSuperAdmin) {
       filter.instituteId = new mongoose.Types.ObjectId(user.instituteId);
-    } else if (req.query.instituteId) {
-      filter.instituteId = new mongoose.Types.ObjectId(String(req.query.instituteId));
+    } else if (user.instituteId) {
+      filter.instituteId = new mongoose.Types.ObjectId(user.instituteId);
+    } else {
+      filter.instituteId = new mongoose.Types.ObjectId(config.singleTenantInstituteId);
     }
 
     // Role scope

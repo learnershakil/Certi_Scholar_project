@@ -12,6 +12,7 @@ dependencies = [
     "pillow>=10.4.0",
     "pypdf>=5.0.0",
     "python-multipart>=0.0.9",
+    "google-cloud-documentai>=3.0.0",
 ]
 
 [project.optional-dependencies]

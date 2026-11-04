@@ -53,7 +53,7 @@ export class ConsistencyService {
       for (const field of extraction.fields) {
         const val = field.normalizedValue !== undefined ? field.normalizedValue : field.rawValue;
 
-        if (field.fieldKey === 'percentage' && typeof val === 'number') {
+        if ((field.fieldKey === 'printedPercentage' || field.fieldKey === 'percentage') && typeof val === 'number') {
           printedPercentage = val;
         } else if (field.fieldKey === 'totalMarks' && typeof val === 'number') {
           printedTotalMarks = val;

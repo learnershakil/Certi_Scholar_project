@@ -41,7 +41,7 @@ export interface NormalizedPage {
 }
 
 export interface NormalizedOcrResult {
-  provider: 'GOOGLE_CLOUD_VISION' | 'TESSERACT' | 'MOCK';
+  provider: 'DOCUMENT_AI' | 'GOOGLE_CLOUD_VISION' | 'TESSERACT' | 'MOCK';
   providerVersion?: string;
   documentId: string;
   fullText: string;

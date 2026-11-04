@@ -38,11 +38,10 @@ export function middleware(request: NextRequest) {
     if (role === 'STUDENT') {
       url.pathname = '/student';
       return NextResponse.redirect(url, 307);
-    } else if (
-      role === 'OFFICER' ||
-      role === 'VERIFICATION_OFFICER' ||
-      role === 'SCHOLARSHIP_OFFICER'
-    ) {
+    } else if (role === 'SCHOLARSHIP_OFFICER') {
+      url.pathname = '/scholarship';
+      return NextResponse.redirect(url, 307);
+    } else if (role === 'OFFICER' || role === 'VERIFICATION_OFFICER') {
       url.pathname = '/officer';
       return NextResponse.redirect(url, 307);
     } else {
@@ -66,14 +65,25 @@ export function middleware(request: NextRequest) {
       url.pathname = '/student';
       return NextResponse.redirect(url, 307);
     }
-  } else if (
-    role === 'OFFICER' ||
-    role === 'VERIFICATION_OFFICER' ||
-    role === 'SCHOLARSHIP_OFFICER'
-  ) {
+  } else if (role === 'SCHOLARSHIP_OFFICER') {
     if (
       pathname.startsWith('/student') ||
       pathname.startsWith('/admin') ||
+      pathname.startsWith('/officer') ||
+      pathname.startsWith('/verification') ||
+      pathname.startsWith('/institute') ||
+      pathname.startsWith('/platform') ||
+      pathname.startsWith('/dev')
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/scholarship';
+      return NextResponse.redirect(url, 307);
+    }
+  } else if (role === 'OFFICER' || role === 'VERIFICATION_OFFICER') {
+    if (
+      pathname.startsWith('/student') ||
+      pathname.startsWith('/admin') ||
+      pathname.startsWith('/scholarship') ||
       pathname.startsWith('/institute') ||
       pathname.startsWith('/platform') ||
       pathname.startsWith('/dev')

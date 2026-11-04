@@ -30,6 +30,9 @@
     "eslint": "10.9.1",
     "postcss": "^8.5.32",
     "tailwindcss": "^4.3.3",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "@babel/core": "8.0.1",
+    "@babel/eslint-parser": "8.0.1",
+    "@babel/preset-typescript": "8.0.1"
   }
 }

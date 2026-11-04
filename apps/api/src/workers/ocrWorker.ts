@@ -65,12 +65,14 @@ export function createOcrWorker(): Worker<OcrJobData> {
         { upsert: true, new: true }
       );
 
-      // 5. Update document status
+      // 5. Record page count only. The document is not COMPLETED here:
+      // classification and extraction below set CLASSIFIED, then
+      // EXTRACTED or PENDING_REVIEW. Setting COMPLETED at OCR time
+      // would hide a later downstream failure.
       const updatedDoc = await DocumentModel.findByIdAndUpdate(
         documentId,
         {
           $set: {
-            status: DocumentProcessingState.COMPLETED,
             pageCount: ocrResult.pageCount,
           },
         },
@@ -135,7 +137,23 @@ export function createOcrWorker(): Worker<OcrJobData> {
           }
         }
       } catch (pipelineErr) {
-        console.warn(`[OCR PIPELINE] Downstream processing for ${documentId} caught notice:`, (pipelineErr as Error).message);
+        const message = (pipelineErr as Error).message;
+        console.error(`[OCR PIPELINE] Downstream processing failed for ${documentId}:`, message);
+        await DocumentModel.findByIdAndUpdate(documentId, {
+          $set: { status: DocumentProcessingState.FAILED },
+        });
+        if (updatedDoc) {
+          await timelineService.recordEvent({
+            applicationId: updatedDoc.applicationId,
+            documentId,
+            instituteId,
+            type: TimelineEventType.PROCESSING_FAILED,
+            title: 'Processing failed after OCR',
+            description: `Classification or extraction failed: ${message}. The document is marked FAILED, not complete.`,
+            metadata: { error: message },
+          });
+        }
+        throw pipelineErr;
       }
 
       return ocrResult;
@@ -161,6 +179,9 @@ export function createOcrWorker(): Worker<OcrJobData> {
           },
         }
       );
+      await DocumentModel.findByIdAndUpdate(job.data.documentId, {
+        $set: { status: DocumentProcessingState.FAILED },
+      });
     }
   });
 

@@ -158,7 +158,7 @@ export default function OfficerPortal() {
                         className="hover:bg-white/[0.02] transition-colors group"
                       >
                         <td className="py-3 px-4 font-mono font-medium text-white">
-                          {item.applicationId || 'APP-10482'}
+                          {item.applicationId || 'n/a'}
                         </td>
                         <td className="py-3 px-4 text-[#d0d3d8]">
                           <div className="font-medium text-white">

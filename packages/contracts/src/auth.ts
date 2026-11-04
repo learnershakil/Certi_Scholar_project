@@ -4,11 +4,23 @@ export enum UserRole {
   STUDENT = 'STUDENT',
   OFFICER = 'OFFICER',
   ADMIN = 'ADMIN',
-  // Legacy aliases mapped internally for backwards compatibility if referenced:
-  VERIFICATION_OFFICER = 'OFFICER',
-  SCHOLARSHIP_OFFICER = 'OFFICER',
-  INSTITUTE_ADMIN = 'ADMIN',
-  PLATFORM_SUPER_ADMIN = 'ADMIN',
+  VERIFICATION_OFFICER = 'VERIFICATION_OFFICER',
+  SCHOLARSHIP_OFFICER = 'SCHOLARSHIP_OFFICER',
+  INSTITUTE_ADMIN = 'INSTITUTE_ADMIN',
+  PLATFORM_SUPER_ADMIN = 'PLATFORM_SUPER_ADMIN',
+}
+
+// Legacy OFFICER records predate the split and were verification work, so
+// they expand to VERIFICATION_OFFICER only, never to SCHOLARSHIP_OFFICER.
+// INSTITUTE_ADMIN / PLATFORM_SUPER_ADMIN expand to ADMIN for the admin
+// bypass, matching the old alias behaviour without merging the values.
+export function expandRoles(roles: UserRole[]): UserRole[] {
+  const out = new Set<UserRole>(roles);
+  if (out.has(UserRole.OFFICER)) out.add(UserRole.VERIFICATION_OFFICER);
+  if (out.has(UserRole.INSTITUTE_ADMIN) || out.has(UserRole.PLATFORM_SUPER_ADMIN)) {
+    out.add(UserRole.ADMIN);
+  }
+  return [...out];
 }
 
 export const UserRoleSchema = z.nativeEnum(UserRole);

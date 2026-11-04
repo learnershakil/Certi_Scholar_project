@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import {
   DocumentTypeCategory,
+  DocumentProcessingState,
   TimelineEventType,
   ClassificationResponseDto,
   FieldDataType,
@@ -24,9 +25,10 @@ const SEED_PROFILES = [
       { fieldKey: 'rollNumber', label: 'Roll Number', dataType: FieldDataType.STRING, required: true, confidenceThreshold: 0.90 },
       { fieldKey: 'schoolName', label: 'School / Institution', dataType: FieldDataType.STRING, required: false, confidenceThreshold: 0.80 },
       { fieldKey: 'passingYear', label: 'Year of Passing', dataType: FieldDataType.NUMBER, required: true, confidenceThreshold: 0.90 },
-      { fieldKey: 'marksObtained', label: 'Total Marks Obtained', dataType: FieldDataType.NUMBER, required: true, confidenceThreshold: 0.85 },
-      { fieldKey: 'maximumMarks', label: 'Maximum Total Marks', dataType: FieldDataType.NUMBER, required: true, confidenceThreshold: 0.85 },
-      { fieldKey: 'percentage', label: 'Calculated / Printed Percentage', dataType: FieldDataType.NUMBER, required: true, confidenceThreshold: 0.85 },
+      { fieldKey: 'totalMarks', label: 'Total Marks Obtained', dataType: FieldDataType.NUMBER, required: true, confidenceThreshold: 0.85 },
+      { fieldKey: 'maxMarks', label: 'Maximum Total Marks', dataType: FieldDataType.NUMBER, required: true, confidenceThreshold: 0.85 },
+      { fieldKey: 'printedPercentage', label: 'Printed Percentage', dataType: FieldDataType.NUMBER, required: true, confidenceThreshold: 0.85 },
+      { fieldKey: 'subjectMarks', label: 'Subject Marks Breakdown', dataType: FieldDataType.ARRAY, required: false, confidenceThreshold: 0.85 },
     ],
   },
   {
@@ -39,7 +41,7 @@ const SEED_PROFILES = [
       { fieldKey: 'applicantName', label: 'Applicant / Beneficiary Name', dataType: FieldDataType.STRING, required: true, confidenceThreshold: 0.85 },
       { fieldKey: 'certificateNumber', label: 'Certificate / Praman Patra Number', dataType: FieldDataType.STRING, required: true, confidenceThreshold: 0.90 },
       { fieldKey: 'issuingAuthority', label: 'Issuing Officer (Tehsildar / SDM)', dataType: FieldDataType.STRING, required: true, confidenceThreshold: 0.80 },
-      { fieldKey: 'annualIncomeRupees', label: 'Annual Family Income (INR)', dataType: FieldDataType.NUMBER, required: true, confidenceThreshold: 0.90 },
+      { fieldKey: 'annualFamilyIncome', label: 'Annual Family Income (INR)', dataType: FieldDataType.NUMBER, required: true, confidenceThreshold: 0.90 },
       { fieldKey: 'issueDate', label: 'Certificate Issue Date', dataType: FieldDataType.STRING, required: true, confidenceThreshold: 0.85 },
     ],
   },
@@ -115,6 +117,7 @@ export class ClassificationService {
         category: result.category,
         categoryConfidence: result.modelConfidence,
         extractionProfileId: resolvedProfile?._id ? resolvedProfile._id.toString() : null,
+        status: DocumentProcessingState.CLASSIFIED,
       },
     });
 

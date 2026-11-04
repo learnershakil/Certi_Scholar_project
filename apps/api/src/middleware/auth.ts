@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { UserRole, AuthSessionPayload } from '@repo/contracts';
+import { UserRole, AuthSessionPayload, expandRoles } from '@repo/contracts';
 import { config } from '../config/env';
 
 // Extend Express Request interface
@@ -60,11 +60,10 @@ export function requireRole(...allowedRoles: UserRole[]) {
       return;
     }
 
-    if (req.user.isSuperAdmin || req.user.role === UserRole.ADMIN) {
+    const userRoles = expandRoles(req.user.roles || [req.user.role]);
+    if (req.user.isSuperAdmin || userRoles.includes(UserRole.ADMIN)) {
       return next();
     }
-
-    const userRoles = req.user.roles || [req.user.role];
     const hasRole = userRoles.some((r) => allowedRoles.includes(r as UserRole));
 
     if (!hasRole) {

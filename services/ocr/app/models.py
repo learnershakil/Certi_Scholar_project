@@ -36,7 +36,7 @@ class NormalizedPage(BaseModel):
     blocks: list[NormalizedBlock] = Field(default_factory=list)
 
 class NormalizedOcrResult(BaseModel):
-    provider: Literal['GOOGLE_CLOUD_VISION', 'TESSERACT', 'MOCK']
+    provider: Literal['DOCUMENT_AI', 'GOOGLE_CLOUD_VISION', 'TESSERACT', 'MOCK']
     providerVersion: str | None = None
     documentId: str
     fullText: str

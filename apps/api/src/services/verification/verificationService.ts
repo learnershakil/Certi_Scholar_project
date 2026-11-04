@@ -3,6 +3,7 @@ import {
   AuthSessionPayload,
   CreateConsentGrantDto,
   TimelineEventType,
+  expandRoles,
   UserRole,
   VerificationProviderType,
 } from '@repo/contracts';
@@ -153,9 +154,10 @@ export class VerificationService {
     }
 
     // Role check: Only authorized staff or owning student for Certi Adapter
+    const expanded = expandRoles(actor.roles || [actor.role]);
     const isStaff =
-      actor.roles.includes(UserRole.VERIFICATION_OFFICER) ||
-      actor.roles.includes(UserRole.INSTITUTE_ADMIN) ||
+      expanded.includes(UserRole.VERIFICATION_OFFICER) ||
+      expanded.includes(UserRole.ADMIN) ||
       actor.isSuperAdmin;
 
     const isOwningStudent =
@@ -170,6 +172,10 @@ export class VerificationService {
     }
 
     const provider = verificationProviderFactory.getProvider(providerType);
+
+    if (!provider.isAvailable()) {
+      throw new Error(`Verification provider ${providerType} is not available. Check its configuration before retrying.`);
+    }
 
     const result = await provider.verify({
       documentId: doc._id.toString(),

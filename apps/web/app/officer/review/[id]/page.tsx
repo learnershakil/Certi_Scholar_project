@@ -48,74 +48,62 @@ export default function ReviewCorrectionPage() {
   const [verificationResult, setVerificationResult] = useState<any>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
-  // Mocked/Loaded Extracted Fields matching Screen 4 in media_1793735044024_84c158d8.jpg
-  const [fields, setFields] = useState<ExtractedField[]>([
-    {
-      key: 'studentName',
-      label: 'Student Name',
-      value: 'Ananya Sharma',
-      confidence: 0.99,
-      bbox: { x: 120, y: 155, width: 220, height: 26 },
-    },
-    {
-      key: 'rollNumber',
-      label: 'Roll Number',
-      value: '210314',
-      confidence: 0.98,
-      bbox: { x: 120, y: 125, width: 140, height: 26 },
-    },
-    {
-      key: 'classGrade',
-      label: 'Class',
-      value: 'XII',
-      confidence: 0.99,
-      bbox: { x: 120, y: 185, width: 80, height: 26 },
-    },
-    {
-      key: 'mathMarks',
-      label: 'Mathematics',
-      value: 95,
-      confidence: 0.97,
-      bbox: { x: 260, y: 245, width: 60, height: 24 },
-    },
-    {
-      key: 'physicsMarks',
-      label: 'Physics',
-      value: 92,
-      confidence: 0.97,
-      bbox: { x: 260, y: 275, width: 60, height: 24 },
-    },
-    {
-      key: 'chemMarks',
-      label: 'Chemistry',
-      value: 90,
-      confidence: 0.86,
-      bbox: { x: 260, y: 305, width: 60, height: 24 },
-    },
-  ]);
+  const [fields, setFields] = useState<ExtractedField[]>([]);
+  const [documentInfo, setDocumentInfo] = useState<any>(null);
+  const [viewUrl, setViewUrl] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [correctionsHistory, setCorrectionsHistory] = useState<any[]>([
-    {
-      id: 'h1',
-      fieldKey: 'Mathematics',
-      previousValue: '85',
-      correctedValue: '95',
-      reason: 'Calibrated OCR artifact: misread 9 as 8',
-      officer: 'Officer Demo',
-      timestamp: '2 mins ago',
-    },
-  ]);
+  const [correctionsHistory, setCorrectionsHistory] = useState<any[]>([]);
 
   useEffect(() => {
-    // Attempt to load live extraction record if available
     apiClient
-      .getExtraction(documentId)
+      .getReviewDetails(documentId)
       .then((res) => {
-        if (res?.data?.fields && Object.keys(res.data.fields).length > 0) {
-          // Normalize loaded fields if available
-        }
+        const data = res?.data;
+        if (!data) throw new Error('No review data returned');
+        setDocumentInfo(data.document || null);
+        setViewUrl(data.viewUrl || null);
+        const rawFields = data.extraction?.fields || [];
+        setFields(
+          rawFields.map((f: any) => {
+            const verts = f.source?.boundingPolygon?.vertices || [];
+            let bbox: ExtractedField['bbox'];
+            if (verts.length >= 4) {
+              const xs = verts.map((v: any) => v.x);
+              const ys = verts.map((v: any) => v.y);
+              bbox = {
+                x: Math.min(...xs),
+                y: Math.min(...ys),
+                width: Math.max(...xs) - Math.min(...xs),
+                height: Math.max(...ys) - Math.min(...ys),
+              };
+            }
+            return {
+              key: f.fieldKey,
+              label: f.label || f.fieldKey,
+              value: f.normalizedValue ?? f.rawValue ?? '',
+              confidence: f.confidence ?? 0,
+              bbox,
+              corrected: f.reviewStatus === 'HUMAN_CORRECTED',
+            };
+          })
+        );
+        setCorrectionsHistory(
+          (data.corrections || []).map((c: any) => ({
+            id: c._id || c.id,
+            fieldKey: c.fieldKey,
+            previousValue: String(c.originalValue ?? ''),
+            correctedValue: String(c.correctedValue ?? ''),
+            reason: c.reason || '',
+            officer: c.officerId || 'Officer',
+            timestamp: c.createdAt ? new Date(c.createdAt).toLocaleString() : '',
+          }))
+        );
+        if (rawFields.length > 0) setSelectedFieldKey(rawFields[0].fieldKey);
       })
-      .catch(() => {})
+      .catch((err: unknown) => {
+        setLoadError(err instanceof Error ? err.message : 'Failed to load review details');
+      })
       .finally(() => setLoading(false));
   }, [documentId]);
 
@@ -176,7 +164,7 @@ export default function ReviewCorrectionPage() {
     try {
       const res = await apiClient.runConsistencyCheck(documentId);
       setConsistencyResult(res.data);
-      setActionSuccess('M6 Academic Consistency check completed: 100% Consistent.');
+      setActionSuccess(`M6 Consistency check: ${res.data.status}, computed ${res.data.computedPercentage}% (printed ${res.data.printedPercentage ?? 'n/a'}%), discrepancy: ${res.data.discrepancyFlagged ? 'yes' : 'no'}.`);
       setTimeout(() => setActionSuccess(null), 3000);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Consistency check failed');
@@ -185,11 +173,11 @@ export default function ReviewCorrectionPage() {
     }
   };
 
-  const handleRunVerification = async (provider: 'CERTI_ADAPTER' | 'SIMULATED_PROVIDER') => {
+  const handleRunVerification = async (provider: 'CERTI_ADAPTER' | 'SIMULATED') => {
     setVerifying(true);
     try {
       const res = await apiClient.executeVerification({
-        applicationId: 'APP-10482',
+        applicationId: documentInfo?.applicationId || '',
         documentId,
         provider,
       });
@@ -234,10 +222,10 @@ export default function ReviewCorrectionPage() {
   return (
     <AppShell
       title="Review & Correction"
-      subtitle="Application: APP-10482 • Document: Marksheet.pdf"
+      subtitle={`Application: ${documentInfo?.applicationId || "n/a"} - Document: ${documentInfo?.originalName || documentInfo?.filename || "n/a"}`}
       breadcrumbs={[
         { label: 'Review Queue', href: '/officer' },
-        { label: 'APP-10482' },
+        { label: documentInfo?.applicationId || 'n/a' },
       ]}
       action={
         <div className="flex items-center gap-2">
@@ -281,84 +269,30 @@ export default function ReviewCorrectionPage() {
               </div>
             </div>
 
-            {/* Document Mock Sheet with SVG Polygon Overlay */}
-            <div className="relative w-full aspect-[4/3] bg-[#f8fafc] rounded-md overflow-hidden p-6 border border-slate-300 select-none">
-              {/* Document Background Layout */}
-              <div className="text-center pb-4 border-b border-slate-300">
-                <h3 className="font-serif font-bold text-slate-800 text-sm tracking-wide uppercase">
-                  Central Board of Secondary Education
-                </h3>
-                <p className="text-[10px] text-slate-500 font-serif">Statement of Marks • Higher Secondary Examination</p>
+            {loadError ? (
+              <div className="p-4 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+                {loadError} - no mock data is shown in place of the live record.
               </div>
-
-              {/* Student Metadata */}
-              <div className="mt-4 grid grid-cols-2 gap-y-2 text-[11px] text-slate-700 font-sans">
-                <div>
-                  <span className="text-slate-400">Roll No: </span>
-                  <span className="font-mono font-bold text-slate-900">210314</span>
-                </div>
-                <div>
-                  <span className="text-slate-400">Class: </span>
-                  <span className="font-bold text-slate-900">XII</span>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-slate-400">Candidate Name: </span>
-                  <span className="font-bold text-slate-900">Ananya Sharma</span>
-                </div>
+            ) : fields.length === 0 ? (
+              <div className="p-4 rounded-md border border-white/[0.08] text-[#8a8f98] text-xs">
+                No extracted fields available for this document yet. Run extraction from the review queue first.
               </div>
-
-              {/* Subject Scores Table */}
-              <div className="mt-4 border border-slate-300 rounded overflow-hidden text-[11px]">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-100 text-slate-600 text-[10px] font-semibold">
-                    <tr className="border-b border-slate-300">
-                      <th className="p-1.5">Subject</th>
-                      <th className="p-1.5">Max Marks</th>
-                      <th className="p-1.5">Marks Obtained</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-slate-800">
-                    <tr>
-                      <td className="p-1.5 font-medium">Mathematics</td>
-                      <td className="p-1.5 font-mono">100</td>
-                      <td className="p-1.5 font-mono font-bold">95</td>
-                    </tr>
-                    <tr>
-                      <td className="p-1.5 font-medium">Physics</td>
-                      <td className="p-1.5 font-mono">100</td>
-                      <td className="p-1.5 font-mono font-bold">92</td>
-                    </tr>
-                    <tr>
-                      <td className="p-1.5 font-medium">Chemistry</td>
-                      <td className="p-1.5 font-mono">100</td>
-                      <td className="p-1.5 font-mono font-bold">90</td>
-                    </tr>
-                  </tbody>
-                </table>
+            ) : viewUrl ? (
+              <iframe src={viewUrl} title="Document viewer" className="w-full aspect-[4/3] rounded-md border border-white/[0.08] bg-white" />
+            ) : (
+              <div className="p-4 rounded-md border border-white/[0.08] text-[#8a8f98] text-xs">
+                No document view URL available for this record.
               </div>
-
-              {/* Interactive SVG Bounding Box Coordinate Overlays */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                {fields.map((f) => {
-                  if (!f.bbox) return null;
-                  const isSelected = selectedFieldKey === f.key;
-                  return (
-                    <rect
-                      key={f.key}
-                      x={f.bbox.x}
-                      y={f.bbox.y}
-                      width={f.bbox.width}
-                      height={f.bbox.height}
-                      fill={isSelected ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.08)'}
-                      stroke={isSelected ? '#10b981' : '#059669'}
-                      strokeWidth={isSelected ? 2 : 1.5}
-                      rx={3}
-                      className="transition-all"
-                    />
-                  );
-                })}
-              </svg>
-            </div>
+            )}
+            {(() => {
+              const selected = fields.find((f) => f.key === selectedFieldKey);
+              if (!selected?.bbox) return null;
+              return (
+                <div className="text-[11px] font-mono text-[#8a8f98]">
+                  Selected field bounding box (document pixels): x={Math.round(selected.bbox.x)}, y={Math.round(selected.bbox.y)}, w={Math.round(selected.bbox.width)}, h={Math.round(selected.bbox.height)}
+                </div>
+              );
+            })()}
           </div>
 
           {/* Right: Extracted Fields, Corrections & Verification Tools (Screen 4 Right) */}
@@ -431,7 +365,7 @@ export default function ReviewCorrectionPage() {
                 </button>
 
                 <button
-                  onClick={() => handleRunVerification('SIMULATED_PROVIDER')}
+                  onClick={() => handleRunVerification('SIMULATED')}
                   disabled={verifying}
                   className="btn-secondary text-xs py-2 px-3 justify-center flex items-center gap-1.5"
                 >
