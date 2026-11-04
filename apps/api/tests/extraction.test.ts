@@ -196,16 +196,17 @@ describe('M4 Field Extraction & Confidence Calibration (Priyanshu Kumar)', () =>
     expect(nameField.normalizedValue).toBe('PRIYANSHU KUMAR');
     expect(nameField.confidence).toBeGreaterThanOrEqual(0.85);
     expect(nameField.reviewStatus).toBe(FieldReviewStatus.AUTO_ACCEPTED);
-    expect(nameField.source.boundingPolygon.vertices.length).toBe(4);
+    // No OCR geometry in this fixture, so no fabricated polygon is expected.
+    expect(nameField.source.boundingPolygon).toBeUndefined();
 
     const rollField = data.fields.find((f: any) => f.fieldKey === 'rollNumber');
     expect(rollField.normalizedValue).toBe('1294819');
     expect(rollField.confidence).toBeGreaterThanOrEqual(0.9);
 
-    const marksField = data.fields.find((f: any) => f.fieldKey === 'marksObtained');
+    const marksField = data.fields.find((f: any) => f.fieldKey === 'totalMarks');
     expect(marksField.normalizedValue).toBe(475);
 
-    const pctField = data.fields.find((f: any) => f.fieldKey === 'percentage');
+    const pctField = data.fields.find((f: any) => f.fieldKey === 'printedPercentage');
     expect(pctField.normalizedValue).toBe(95.0);
   });
 
@@ -221,7 +222,7 @@ describe('M4 Field Extraction & Confidence Calibration (Priyanshu Kumar)', () =>
     const data = res.body.data;
     expect(data.profileKey).toBe('STATE_INCOME_CERT_V1');
 
-    const incomeField = data.fields.find((f: any) => f.fieldKey === 'annualIncomeRupees');
+    const incomeField = data.fields.find((f: any) => f.fieldKey === 'annualFamilyIncome');
     expect(incomeField.normalizedValue).toBe(140000);
     expect(incomeField.reviewStatus).toBe(FieldReviewStatus.AUTO_ACCEPTED);
 

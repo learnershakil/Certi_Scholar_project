@@ -6,14 +6,18 @@ export class SimulatedAdapter implements IVerificationProvider {
   readonly providerType = VerificationProviderType.SIMULATED;
 
   isAvailable(): boolean {
-    // Hard-blocked in production configuration
-    return !config.isProd;
+    return !config.isProd && config.enableSimulatedProvider;
   }
 
   async verify(context: VerificationContext): Promise<VerificationExecutionResult> {
     if (config.isProd) {
       throw new Error(
         '[FATAL SECURITY CONFIG] Simulated verification provider is strictly prohibited and hard-blocked in production environment.'
+      );
+    }
+    if (!config.enableSimulatedProvider) {
+      throw new Error(
+        'Simulated verification provider is not enabled. Set ENABLE_SIMULATED_PROVIDER=true only for local testing or demos.'
       );
     }
 

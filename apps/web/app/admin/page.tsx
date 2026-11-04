@@ -40,6 +40,7 @@ export default function AdminPortal() {
   const [users, setUsers] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // New User Form State
   const [newEmail, setNewEmail] = useState('');
@@ -77,16 +78,19 @@ export default function AdminPortal() {
     setLoading(true);
     try {
       const [dashRes, usersRes, auditRes] = await Promise.all([
-        apiClient.getDashboardMetrics().catch(() => ({ data: null })),
-        apiClient.listUsers().catch(() => ({ data: [] })),
-        apiClient.getAuditLogs().catch(() => ({ data: [] })),
+        apiClient.getDashboardMetrics(),
+        apiClient.listUsers(),
+        apiClient.getAuditLogs(),
       ]);
 
       setDashboardData(dashRes.data);
       setUsers(usersRes.data || []);
       setAuditLogs(auditRes.data || []);
     } catch (err) {
-      console.error('Failed to load admin data:', err);
+      setLoadError(err instanceof Error ? err.message : 'Failed to load admin data');
+      setDashboardData(null);
+      setUsers([]);
+      setAuditLogs([]);
     } finally {
       setLoading(false);
     }
@@ -211,6 +215,11 @@ export default function AdminPortal() {
       }
     >
       <div className="space-y-6">
+        {loadError && (
+          <div className="p-3 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">
+            {loadError} — dashboard data is not shown as empty; it failed to load.
+          </div>
+        )}
         {actionSuccess && (
           <div className="p-3 rounded-md bg-[#10b981]/10 border border-[#10b981]/20 text-[#10b981] text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />

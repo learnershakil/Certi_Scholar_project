@@ -22,7 +22,7 @@ const UserSchema = new Schema<IUser>(
     name: { type: String, trim: true },
     role: {
       type: String,
-      enum: [UserRole.STUDENT, UserRole.OFFICER, UserRole.ADMIN],
+      enum: [UserRole.STUDENT, UserRole.OFFICER, UserRole.ADMIN, UserRole.VERIFICATION_OFFICER, UserRole.SCHOLARSHIP_OFFICER, UserRole.INSTITUTE_ADMIN, UserRole.PLATFORM_SUPER_ADMIN],
       default: UserRole.STUDENT,
       index: true,
     },

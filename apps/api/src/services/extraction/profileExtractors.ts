@@ -6,6 +6,37 @@ interface ExtractorContext {
   ocrPages: any[];
 }
 
+
+// OCR evidence for a value: average confidence of the matching OCR words,
+// and a polygon spanning those words. Falls back to the regex confidence
+// when the OCR result carries no word geometry (e.g. legacy test fixtures).
+// No polygon is returned in that case, rather than a fabricated box.
+function ocrEvidence(ctx: ExtractorContext, value: string | null, fallback: number) {
+  if (!value) return { confidence: 0, polygon: undefined as any };
+  const words: any[] = [];
+  for (const page of ctx.ocrPages || []) {
+    for (const block of page.blocks || []) {
+      for (const par of block.paragraphs || []) {
+        for (const w of par.words || []) words.push(w);
+      }
+    }
+  }
+  const tokens = String(value).split(/\s+/).filter(Boolean);
+  const matched = words.filter((w) => tokens.some((t) => String(w.text || '').toUpperCase() === t.toUpperCase()));
+  if (!matched.length) return { confidence: fallback, polygon: undefined as any };
+  const confs = matched.map((w) => w.confidence).filter((c) => typeof c === 'number');
+  const confidence = confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : fallback;
+  const vertices = matched.flatMap((w) => w.boundingPolygon?.vertices || []);
+  let polygon = undefined as any;
+  if (vertices.length) {
+    const xs = vertices.map((v: any) => v.x);
+    const ys = vertices.map((v: any) => v.y);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    polygon = { vertices: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: x1, y: y1 }, { x: x0, y: y1 }] };
+  }
+  return { confidence: Math.round(confidence * 100) / 100, polygon };
+}
+
 export function extractCbseMarksheetFields(ctx: ExtractorContext): IExtractedFieldSubdocument[] {
   const text = ctx.fullText;
   const fields: IExtractedFieldSubdocument[] = [];
@@ -19,19 +50,12 @@ export function extractCbseMarksheetFields(ctx: ExtractorContext): IExtractedFie
     dataType: FieldDataType.STRING,
     rawValue: studentName,
     normalizedValue: studentName ? studentName.toUpperCase() : null,
-    confidence: studentName ? 0.95 : 0.0,
-    confidenceMethod: 'REGEX_HEADER_MATCH',
+    confidence: studentName ? ocrEvidence(ctx, studentName, 0.95).confidence : 0.0,
+    confidenceMethod: 'OCR_WORD_CONFIDENCE_OR_REGEX_MATCH',
     source: {
       page: 1,
       matchedSnippet: nameMatch ? nameMatch[0] : undefined,
-      boundingPolygon: {
-        vertices: [
-          { x: 50, y: 120 },
-          { x: 300, y: 120 },
-          { x: 300, y: 140 },
-          { x: 50, y: 140 },
-        ],
-      },
+      boundingPolygon: studentName ? ocrEvidence(ctx, studentName, 0.95).polygon : undefined,
     },
     reviewStatus: studentName ? FieldReviewStatus.AUTO_ACCEPTED : FieldReviewStatus.NEEDS_REVIEW,
     isBelowThreshold: !studentName,
@@ -47,19 +71,12 @@ export function extractCbseMarksheetFields(ctx: ExtractorContext): IExtractedFie
     dataType: FieldDataType.STRING,
     rawValue: rollNumber,
     normalizedValue: rollNumber,
-    confidence: rollNumber ? 0.96 : 0.0,
+    confidence: rollNumber ? ocrEvidence(ctx, rollNumber, 0.96).confidence : 0.0,
     confidenceMethod: 'NUMERIC_REGEX_MATCH',
     source: {
       page: 1,
       matchedSnippet: rollMatch ? rollMatch[0] : undefined,
-      boundingPolygon: {
-        vertices: [
-          { x: 50, y: 150 },
-          { x: 200, y: 150 },
-          { x: 200, y: 170 },
-          { x: 50, y: 170 },
-        ],
-      },
+      boundingPolygon: rollNumber ? ocrEvidence(ctx, rollNumber, 0.96).polygon : undefined,
     },
     reviewStatus: rollNumber ? FieldReviewStatus.AUTO_ACCEPTED : FieldReviewStatus.NEEDS_REVIEW,
     isBelowThreshold: !rollNumber,
@@ -75,7 +92,7 @@ export function extractCbseMarksheetFields(ctx: ExtractorContext): IExtractedFie
     dataType: FieldDataType.NUMBER,
     rawValue: yearMatch && yearMatch[1] ? yearMatch[1] : null,
     normalizedValue: passingYear,
-    confidence: passingYear ? 0.94 : 0.0,
+    confidence: passingYear ? ocrEvidence(ctx, String(passingYear), 0.94).confidence : 0.0,
     confidenceMethod: 'FOUR_DIGIT_YEAR_MATCH',
     source: {
       page: 1,
@@ -88,15 +105,15 @@ export function extractCbseMarksheetFields(ctx: ExtractorContext): IExtractedFie
   // 4. Marks Obtained & Max Marks
   const marksMatch = text.match(/(?:MARKS\s+OBTAINED|TOTAL(?:\s+MARKS)?)\s*[:\-]?\s*(\d{2,3})(?:\s*\/\s*(\d{2,3}))?/i);
   const marksObtained = marksMatch && marksMatch[1] ? parseInt(marksMatch[1], 10) : null;
-  const maximumMarks = marksMatch && marksMatch[2] ? parseInt(marksMatch[2], 10) : 500;
+  const maximumMarks = marksMatch && marksMatch[2] ? parseInt(marksMatch[2], 10) : null;
 
   fields.push({
-    fieldKey: 'marksObtained',
+    fieldKey: 'totalMarks',
     label: 'Total Marks Obtained',
     dataType: FieldDataType.NUMBER,
     rawValue: marksMatch && marksMatch[1] ? marksMatch[1] : null,
     normalizedValue: marksObtained,
-    confidence: marksObtained ? 0.92 : 0.0,
+    confidence: marksObtained ? ocrEvidence(ctx, String(marksObtained), 0.92).confidence : 0.0,
     confidenceMethod: 'SCORE_GRID_MATCH',
     source: {
       page: 1,
@@ -107,36 +124,66 @@ export function extractCbseMarksheetFields(ctx: ExtractorContext): IExtractedFie
   });
 
   fields.push({
-    fieldKey: 'maximumMarks',
+    fieldKey: 'maxMarks',
     label: 'Maximum Total Marks',
     dataType: FieldDataType.NUMBER,
-    rawValue: maximumMarks.toString(),
+    rawValue: maximumMarks ? maximumMarks.toString() : null,
     normalizedValue: maximumMarks,
-    confidence: 0.95,
+    confidence: maximumMarks ? ocrEvidence(ctx, String(maximumMarks), 0.95).confidence : 0.0,
     confidenceMethod: 'SCORE_GRID_MATCH',
-    reviewStatus: FieldReviewStatus.AUTO_ACCEPTED,
-    isBelowThreshold: false,
+    reviewStatus: maximumMarks ? FieldReviewStatus.AUTO_ACCEPTED : FieldReviewStatus.NEEDS_REVIEW,
+    isBelowThreshold: !maximumMarks,
   });
 
-  // 5. Percentage
+  // 5. Printed percentage only. The recomputed percentage belongs to M6
+  // and must not be merged into this field, or M6 can no longer compare
+  // printed against recomputed values.
   const pctMatch = text.match(/(\d{1,2}(?:\.\d{1,2})?)\s*%/);
-  const percentage = pctMatch && pctMatch[1]
-    ? parseFloat(pctMatch[1])
-    : marksObtained && maximumMarks
-      ? Math.round((marksObtained / maximumMarks) * 10000) / 100
-      : null;
+  const percentage = pctMatch && pctMatch[1] ? parseFloat(pctMatch[1]) : null;
 
   fields.push({
-    fieldKey: 'percentage',
-    label: 'Calculated / Printed Percentage',
+    fieldKey: 'printedPercentage',
+    label: 'Printed Percentage',
     dataType: FieldDataType.NUMBER,
     rawValue: pctMatch ? pctMatch[0] : percentage ? `${percentage}%` : null,
     normalizedValue: percentage,
-    confidence: percentage ? 0.90 : 0.0,
-    confidenceMethod: 'PERCENTAGE_CALC_OR_PRINT',
+    confidence: percentage ? ocrEvidence(ctx, String(percentage), 0.90).confidence : 0.0,
+    confidenceMethod: 'PERCENTAGE_PRINT_MATCH',
     reviewStatus: percentage ? FieldReviewStatus.AUTO_ACCEPTED : FieldReviewStatus.NEEDS_REVIEW,
     isBelowThreshold: !percentage,
   });
+
+  // 6. Subject-level marks. One subject per line: name followed by obtained
+  // marks, optionally over max marks. Header/total/percentage lines are
+  // excluded, so a total line cannot be mistaken for a subject.
+  const subjectMarks: { subjectName: string; obtainedMarks: number; maxMarks: number }[] = [];
+  const subjectConfidences: number[] = [];
+  const excluded = /TOTAL|PERCENTAGE|ROLL|CANDIDATE|EXAMINATION|STATEMENT|BOARD|MARKS\s+OBTAINED/i;
+  for (const line of text.split(/\r?\n/)) {
+    if (excluded.test(line)) continue;
+    const m = line.match(/^\s*([A-Za-z][A-Za-z .&\/-]{2,40}?)\s+(\d{1,3})(?:\s*\/\s*(\d{1,3}))?\s*$/);
+    if (!m || !m[1] || !m[2]) continue;
+    const obtained = parseInt(m[2], 10);
+    const max = m[3] ? parseInt(m[3], 10) : 100;
+    if (obtained > max) continue;
+    subjectMarks.push({ subjectName: m[1].trim(), obtainedMarks: obtained, maxMarks: max });
+    subjectConfidences.push(ocrEvidence(ctx, m[2], 0.88).confidence);
+  }
+  if (subjectMarks.length > 0) {
+    const avgConf = subjectConfidences.reduce((a, b) => a + b, 0) / subjectConfidences.length;
+    fields.push({
+      fieldKey: 'subjectMarks',
+      label: 'Subject Marks Breakdown',
+      dataType: FieldDataType.ARRAY,
+      rawValue: JSON.stringify(subjectMarks),
+      normalizedValue: subjectMarks as any,
+      confidence: Math.round(avgConf * 100) / 100,
+      confidenceMethod: 'SUBJECT_ROW_MATCH',
+      source: { page: 1 },
+      reviewStatus: avgConf >= 0.85 ? FieldReviewStatus.AUTO_ACCEPTED : FieldReviewStatus.NEEDS_REVIEW,
+      isBelowThreshold: avgConf < 0.85,
+    });
+  }
 
   return fields;
 }
@@ -178,18 +225,18 @@ export function extractIncomeCertFields(ctx: ExtractorContext): IExtractedFieldS
   });
 
   // 3. Issuing Authority
-  const authMatch = text.match(/(?:TAHSILDAR|TEHSILDAR|SUB-DIVISIONAL\s+MAGISTRATE|REVENUE\s+OFFICER)\s*([A-Za-z\s,]{3,30})?/i);
-  const authority = authMatch ? authMatch[0].trim() : 'Tahsildar';
+  const authMatch = text.match(/(TAHSILDAR|TEHSILDAR|SUB-DIVISIONAL\s+MAGISTRATE|REVENUE\s+OFFICER)/i);
+  const authority = authMatch && authMatch[1] ? authMatch[1].trim() : null;
   fields.push({
     fieldKey: 'issuingAuthority',
     label: 'Issuing Officer',
     dataType: FieldDataType.STRING,
     rawValue: authority,
-    normalizedValue: authority.toUpperCase(),
-    confidence: 0.90,
+    normalizedValue: authority ? authority.toUpperCase() : null,
+    confidence: authority ? 0.90 : 0.0,
     confidenceMethod: 'AUTHORITY_KEYWORD_MATCH',
-    reviewStatus: FieldReviewStatus.AUTO_ACCEPTED,
-    isBelowThreshold: false,
+    reviewStatus: authority ? FieldReviewStatus.AUTO_ACCEPTED : FieldReviewStatus.NEEDS_REVIEW,
+    isBelowThreshold: !authority,
   });
 
   // 4. Annual Income Rupees
@@ -199,7 +246,7 @@ export function extractIncomeCertFields(ctx: ExtractorContext): IExtractedFieldS
     : null;
 
   fields.push({
-    fieldKey: 'annualIncomeRupees',
+    fieldKey: 'annualFamilyIncome',
     label: 'Annual Family Income (INR)',
     dataType: FieldDataType.NUMBER,
     rawValue: incomeMatch ? incomeMatch[0] : null,

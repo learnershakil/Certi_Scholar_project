@@ -85,6 +85,30 @@ export class FieldExtractionService {
       }
     }
 
+    // Required fields the extractor never produced must also route to
+    // review, with an explicit missing entry, instead of silently passing.
+    for (const def of profile.fields || []) {
+      if (!def.required) continue;
+      const existing = extractedFields.find((f) => f.fieldKey === def.fieldKey);
+      if (existing && existing.rawValue !== null && existing.rawValue !== undefined) continue;
+      allRequiredPresent = false;
+      needsReview = true;
+      if (!existing) {
+        extractedFields.push({
+          fieldKey: def.fieldKey,
+          label: def.label,
+          dataType: def.dataType,
+          rawValue: null,
+          normalizedValue: null,
+          confidence: 0,
+          confidenceMethod: 'REQUIRED_FIELD_MISSING',
+          reviewStatus: FieldReviewStatus.NEEDS_REVIEW,
+          isBelowThreshold: true,
+          missingReason: 'Required field was not extracted from the document',
+        } as any);
+      }
+    }
+
     // 5. Version increment & store
     const previous = await DocumentExtractionModel.findOne({ documentId: doc._id }).sort({ version: -1 });
     const nextVersion = previous ? previous.version + 1 : 1;

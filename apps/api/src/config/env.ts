@@ -92,9 +92,14 @@ export const config = {
   smtpPass: process.env.SMTP_PASS || '',
   smtpFrom: process.env.SMTP_FROM || 'CertiScholar Security <no-reply@certischolar.local>',
   
-  // Verification (M7)
-  enableSimulatedProvider: process.env.ENABLE_SIMULATED_PROVIDER !== 'false',
+  // Verification (M7): simulated provider is opt-in only. The API test
+  // script sets ENABLE_SIMULATED_PROVIDER=true for its own fixtures.
+  enableSimulatedProvider: process.env.ENABLE_SIMULATED_PROVIDER === 'true',
   
+  // Single-tenant deployment: one institute. Client-supplied institute
+  // ids are never trusted to switch scope; this is the fallback only.
+  singleTenantInstituteId: process.env.SINGLE_TENANT_INSTITUTE_ID || '660000000000000000000001',
+
   // Web Application
   appUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
 };

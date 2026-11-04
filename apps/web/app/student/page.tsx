@@ -27,6 +27,8 @@ export default function StudentPortal() {
   const [documents, setDocuments] = useState<any[]>([]);
   const [consentGrants, setConsentGrants] = useState<any[]>([]);
   const [recommendation, setRecommendation] = useState<any>(null);
+  const [timeline, setTimeline] = useState<any[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Upload State
@@ -56,9 +58,13 @@ export default function StudentPortal() {
           const recRes = await apiClient.getRecommendation(appId);
           setRecommendation(recRes.data);
         } catch (_) {}
+        try {
+          const tlRes = await apiClient.getTimeline(docsRes.data[0].id);
+          setTimeline(tlRes.data || []);
+        } catch (_) {}
       }
     } catch (err) {
-      console.error('Failed to load student data:', err);
+      setLoadError(err instanceof Error ? err.message : 'Failed to load student data');
     } finally {
       setLoading(false);
     }
@@ -308,35 +314,32 @@ export default function StudentPortal() {
             <div className="flex items-center justify-between border-b border-white/[0.08] pb-3">
               <div>
                 <span className="text-xs font-semibold text-white block">Processing Timeline</span>
-                <span className="text-[11px] font-mono text-[#8a8f98]">Application: APP-10482</span>
+                <span className="text-[11px] font-mono text-[#8a8f98]">Application: {documents[0]?.applicationId || 'n/a'}</span>
               </div>
               <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/20">
-                Completed
+                {timeline.length > 0 ? 'Live timeline' : 'No events yet'}
               </span>
             </div>
 
-            {/* 8-Stage Timeline Checklist */}
+            {loadError && (
+              <div className="p-3 rounded-md bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs">{loadError}</div>
+            )}
             <div className="space-y-3 text-xs">
-              {[
-                { title: 'Document Uploaded', time: 'Sep 22, 10:14 AM' },
-                { title: 'OCR Completed (Local Tesseract)', time: 'Sep 22, 10:15 AM' },
-                { title: 'Fields Extracted (Deterministic Heuristic)', time: 'Sep 22, 10:18 AM' },
-                { title: 'Under Review', time: 'Sep 22, 11:02 AM' },
-                { title: 'Consistency Check (M6 Recomputed)', time: 'Sep 22, 11:05 AM' },
-                { title: 'Verification (Simulated/Certi Adapter)', time: 'Sep 22, 11:20 AM' },
-                { title: 'Eligibility Evaluated (AST Rules)', time: 'Sep 22, 11:21 AM' },
-                { title: 'Recommendation Ready (M9 Explainable)', time: 'Sep 22, 11:22 AM' },
-              ].map((step, idx) => (
-                <div key={idx} className="flex items-center gap-3">
-                  <div className="w-5 h-5 rounded-full bg-[#10b981]/10 border border-[#10b981]/30 flex items-center justify-center text-[#10b981] shrink-0">
-                    <Check className="w-3 h-3 stroke-[3]" />
+              {timeline.length === 0 ? (
+                <div className="text-[#8a8f98]">No timeline events yet for this application.</div>
+              ) : (
+                timeline.map((ev: any, idx: number) => (
+                  <div key={ev._id || idx} className="flex items-center gap-3">
+                    <div className="w-5 h-5 rounded-full bg-[#10b981]/10 border border-[#10b981]/30 flex items-center justify-center text-[#10b981] shrink-0">
+                      <Check className="w-3 h-3 stroke-[3]" />
+                    </div>
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className="text-white font-medium">{ev.title || ev.type}</span>
+                      <span className="text-[11px] font-mono text-[#62666d]">{ev.timestamp ? new Date(ev.timestamp).toLocaleString() : ''}</span>
+                    </div>
                   </div>
-                  <div className="flex-1 flex items-center justify-between">
-                    <span className="text-white font-medium">{step.title}</span>
-                    <span className="text-[11px] font-mono text-[#62666d]">{step.time}</span>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
 

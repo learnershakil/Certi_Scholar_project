@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import {
   AuthSessionPayload,
+  expandRoles,
   ConditionGroup,
   CreateScholarshipDto,
   RuleEvaluationSummary,
@@ -18,13 +19,9 @@ import { timelineService } from '../timelineService';
 
 export class ScholarshipService {
   async createScholarship(dto: CreateScholarshipDto, actor: AuthSessionPayload): Promise<IScholarship> {
-    const isStaffAdmin =
-      actor.role === UserRole.ADMIN ||
-      actor.roles?.includes(UserRole.ADMIN) ||
-      actor.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
-      actor.isSuperAdmin;
-    if (!isStaffAdmin) {
-      throw new Error('Forbidden: Only Administrators can create scholarship rules');
+    const expanded = expandRoles(actor.roles || [actor.role]);
+    if (!expanded.includes(UserRole.ADMIN) && !expanded.includes(UserRole.SCHOLARSHIP_OFFICER) && !actor.isSuperAdmin) {
+      throw new Error('Forbidden: Only Scholarship Officers or Administrators can create scholarship rules');
     }
 
     const instituteId = actor.isSuperAdmin ? dto.instituteId : actor.instituteId!;
@@ -78,13 +75,9 @@ export class ScholarshipService {
       throw new Error('Forbidden: Unauthorized cross-tenant scholarship update');
     }
 
-    const isStaffAdmin =
-      actor.role === UserRole.ADMIN ||
-      actor.roles?.includes(UserRole.ADMIN) ||
-      actor.roles?.includes(UserRole.INSTITUTE_ADMIN) ||
-      actor.isSuperAdmin;
-    if (!isStaffAdmin) {
-      throw new Error('Forbidden: Only Administrators can modify scholarship rules');
+    const expanded = expandRoles(actor.roles || [actor.role]);
+    if (!expanded.includes(UserRole.ADMIN) && !expanded.includes(UserRole.SCHOLARSHIP_OFFICER) && !actor.isSuperAdmin) {
+      throw new Error('Forbidden: Only Scholarship Officers or Administrators can modify scholarship rules');
     }
 
     let versionChanged = false;
@@ -171,21 +164,31 @@ export class ScholarshipService {
     const facts: Record<string, unknown> = {};
 
     for (const doc of documents) {
-      // 1. Check consistency recomputed percentage
-      const consistency = await AcademicConsistencyModel.findOne({ documentId: doc._id });
-      if (consistency) {
-        facts['percentage'] = consistency.computedPercentage;
-        facts['academicTotalMarks'] = consistency.computedTotalMarks;
-        facts['isDiscrepancyFlagged'] = consistency.discrepancyFlagged;
-      }
-
-      // 2. Extracted fields from profile
+      // 1. Extracted fields first, so a recomputed percentage below can
+      // override the printed one instead of the other way round.
       const extraction = await DocumentExtractionModel.findOne({ documentId: doc._id }).sort({ version: -1 });
       if (extraction) {
         for (const f of extraction.fields) {
           const val = f.normalizedValue !== undefined ? f.normalizedValue : f.rawValue;
           facts[f.fieldKey] = val;
         }
+      }
+      // Legacy alias: rules written against annualFamilyIncome must see
+      // the income field even if an older extraction used a different key.
+      if (facts['annualFamilyIncome'] === undefined && facts['annualIncomeRupees'] !== undefined) {
+        facts['annualFamilyIncome'] = facts['annualIncomeRupees'];
+      }
+      if (facts['printedPercentage'] !== undefined && facts['percentage'] === undefined) {
+        facts['percentage'] = facts['printedPercentage'];
+      }
+
+      // 2. Consistency recomputed percentage, when present, is the
+      // percentage the rule should evaluate on.
+      const consistency = await AcademicConsistencyModel.findOne({ documentId: doc._id });
+      if (consistency) {
+        facts['percentage'] = consistency.computedPercentage;
+        facts['academicTotalMarks'] = consistency.computedTotalMarks;
+        facts['isDiscrepancyFlagged'] = consistency.discrepancyFlagged;
       }
 
       // 3. Verification results
